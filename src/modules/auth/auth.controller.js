@@ -34,7 +34,14 @@ const login = async (req, res) => {
   }
 };
 
+const me = async (req, res) => {
+  res.json({
+    user: req.user,
+  });
+};
+
 module.exports = {
   register,
   login,
+  me,
 };

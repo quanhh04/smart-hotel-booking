@@ -10,8 +10,6 @@ const bookingRoutes = require('./modules/booking/booking.route');
 const paymentRoutes = require('./modules/payment/payment.route');
 const aiRoutes = require('./modules/ai/ai.route');
 
-loadEnvironment();
-
 const app = express();
 
 app.use(cors());
