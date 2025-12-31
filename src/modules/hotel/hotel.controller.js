@@ -17,7 +17,7 @@ const createHotel = async (req, res) => {
       return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    if (req.user.role !== 'ADMIN') {
+    if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
