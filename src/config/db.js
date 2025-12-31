@@ -5,10 +5,14 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-pool.on('connect', () => console.log('✅ Connected to PostgreSQL'));
-pool.on('error', (err) => {
-  console.error('❌ PostgreSQL error', err);
-  process.exit(1);
-});
+(async () => {
+  try {
+    await pool.query('SELECT 1');
+    console.log('✅ Connected to PostgreSQL');
+  } catch (err) {
+    console.error('❌ PostgreSQL connection failed:', err);
+    process.exit(1);
+  }
+})();
 
 module.exports = pool;
