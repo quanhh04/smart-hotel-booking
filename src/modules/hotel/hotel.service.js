@@ -1,10 +1,11 @@
 const hotelModel = require('./hotel.model');
 
-const getStatus = () => ({
-  module: hotelModel.service,
-  status: hotelModel.status,
-});
+const listHotels = async () => hotelModel.getHotels();
+
+const addHotel = async ({ name, address, description }) =>
+  hotelModel.createHotel({ name, address, description });
 
 module.exports = {
-  getStatus,
+  listHotels,
+  addHotel,
 };
