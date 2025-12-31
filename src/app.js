@@ -9,6 +9,7 @@ const hotelRoutes = require('./modules/hotel/hotel.route');
 const bookingRoutes = require('./modules/booking/booking.route');
 const paymentRoutes = require('./modules/payment/payment.route');
 const aiRoutes = require('./modules/ai/ai.route');
+const roomRoutes = require('./modules/room/room.route');
 
 const app = express();
 
@@ -26,5 +27,6 @@ app.use('/hotels', hotelRoutes);
 app.use('/bookings', bookingRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/ai', aiRoutes);
+app.use('/rooms', roomRoutes);
 
 module.exports = app;
