@@ -1,10 +1,13 @@
 const bookingModel = require('./booking.model');
 
-const getStatus = () => ({
-  module: bookingModel.service,
-  status: bookingModel.status,
-});
+const createBooking = async ({ userId, roomId, checkIn, checkOut }) =>
+  bookingModel.createBooking({
+    userId,
+    roomId,
+    checkIn,
+    checkOut,
+  });
 
 module.exports = {
-  getStatus,
+  createBooking,
 };
