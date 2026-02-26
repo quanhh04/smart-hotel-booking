@@ -33,6 +33,7 @@ const createBooking = async ({ userId, roomId, checkIn, checkOut }) => {
 
   try {
     await client.query('BEGIN');
+console.log('Checking room availability for room_id:', roomId, 'check_in:', checkIn, 'check_out:', checkOut);
 
     const roomResult = await client.query(
       `
@@ -43,14 +44,14 @@ const createBooking = async ({ userId, roomId, checkIn, checkOut }) => {
       `,
       [roomId],
     );
-
+console.log('Room query result:', roomResult.rows);
     const room = roomResult.rows[0];
     if (!room) {
       const error = new Error('Room not found');
       error.status = 404;
       throw error;
     }
-
+console.log('Checking availability for room_id:', roomId);
     const availabilityResult = await client.query(
       `
         SELECT 1
@@ -61,13 +62,13 @@ const createBooking = async ({ userId, roomId, checkIn, checkOut }) => {
       `,
       [roomId, checkIn, checkOut],
     );
-
+console.log('Availability query result:', availabilityResult.rows);
     if (availabilityResult.rowCount > 0) {
       const error = new Error('Room is not available for the selected dates');
       error.status = 409;
       throw error;
     }
-
+console.log('Creating booking for room_id:', roomId, 'user_id:', userId);
     const bookingResult = await client.query(
       `
         INSERT INTO booking.bookings (room_id, user_id, check_in, check_out, status)

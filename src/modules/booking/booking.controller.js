@@ -13,7 +13,7 @@ const createBooking = async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
-
+console.log('Received booking request:', req.user, 'with body:', req.body);
     const { room_id: roomId, check_in: checkIn, check_out: checkOut } = req.body;
 
     if (!roomId || !checkIn || !checkOut) {
