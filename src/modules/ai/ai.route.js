@@ -4,6 +4,7 @@ const chatbotRoutes = require('./chatbot.route');
 const recommendationRoutes = require('./recommendation.route');
 const chatAdvancedRoutes = require('./chatAdvanced.route');
 const recommendationAdvancedRoutes = require('./recommendationAdvanced.route');
+const analyticsRoutes = require('./analytics.route');
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use('/', chatbotRoutes);
 router.use('/', recommendationRoutes);
 router.use('/', chatAdvancedRoutes);
 router.use('/', recommendationAdvancedRoutes);
+router.use('/', analyticsRoutes);
 
 module.exports = router;
