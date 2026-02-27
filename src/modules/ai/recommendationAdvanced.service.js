@@ -56,7 +56,7 @@ const getAdvancedRecommendations = async ({ guests, maxPrice, amenities, limit =
         b.room_id,
         COUNT(*)::int AS booking_count
       FROM booking.bookings b
-      WHERE UPPER(b.payment_status) = 'PAID'
+      WHERE UPPER(b.status) = 'PAID'
       GROUP BY b.room_id
     ) bc ON bc.room_id = r.id
     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
