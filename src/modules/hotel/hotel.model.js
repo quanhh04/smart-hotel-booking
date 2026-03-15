@@ -40,11 +40,6 @@ const getHotelDetailById = async (hotelId) => {
       h.stars,
       h.discount_percent,
 
-      jsonb_build_object(
-        'id', c.id,
-        'name', c.name
-      ) AS city,
-
       COALESCE(img.url, '[]'::jsonb) AS images,
 
       COALESCE(
