@@ -1,10 +1,17 @@
 const pool = require('../../config/db');
 
-const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities }) => {
+const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut }) => {
   const filters = [];
   const values = [];
   let joinAmenities = false;
   let amenitiesCount = 0;
+  let hasDateFilter = false;
+
+  if (checkIn !== undefined && checkOut !== undefined) {
+    hasDateFilter = true;
+    values.push(checkIn);
+    values.push(checkOut);
+  }
 
   if (minPrice !== undefined) {
     values.push(Number(minPrice));
@@ -32,27 +39,50 @@ const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities }) => {
     values,
     joinAmenities,
     amenitiesCount,
+    hasDateFilter,
   };
 };
 
-const getRooms = async ({ minPrice, maxPrice, guests, amenities }) => {
+const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut }) => {
   const filterAmenities = amenities ? amenities.split(',').map((item) => item.trim()).filter(Boolean) : [];
-  const { filters, values, joinAmenities, amenitiesCount } = buildRoomFilters({
+  const { filters, values, joinAmenities, amenitiesCount, hasDateFilter } = buildRoomFilters({
     minPrice,
     maxPrice,
     guests,
     amenities: filterAmenities,
+    checkIn,
+    checkOut,
   });
 
   const amenityJoin = joinAmenities
-    ? 'JOIN hotel.room_amenities ra ON ra.room_id = r.id JOIN hotel.amenities a ON a.id = ra.amenity_id'
-    : 'LEFT JOIN hotel.room_amenities ra ON ra.room_id = r.id LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id';
+    ? 'JOIN hotel.room_amenities ra ON ra.room_type_id = r.id JOIN hotel.amenities a ON a.id = ra.amenity_id'
+    : 'LEFT JOIN hotel.room_amenities ra ON ra.room_type_id = r.id LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id';
+
+  let bookingJoin = '';
+  let availableSelect = '';
+  let havingAvailable = '';
+
+  if (hasDateFilter) {
+    bookingJoin = `LEFT JOIN booking.bookings b
+      ON b.room_type_id = r.id
+      AND b.status IN ('PENDING', 'PAID')
+      AND NOT (b.check_out <= $1 OR b.check_in >= $2)`;
+    availableSelect = ',\n      r.total_quantity - COUNT(DISTINCT b.id) AS available_quantity';
+    havingAvailable = 'HAVING r.total_quantity - COUNT(DISTINCT b.id) > 0';
+  }
 
   let havingClause = '';
   if (joinAmenities) {
     values.push(amenitiesCount);
-    havingClause = 'HAVING COUNT(DISTINCT a.name) = $' + values.length;
+    const amenitiesHaving = 'COUNT(DISTINCT a.name) = $' + values.length;
     filters.push('a.name = ANY($' + (values.length - 1) + ')');
+    if (hasDateFilter) {
+      havingClause = havingAvailable + ' AND ' + amenitiesHaving;
+    } else {
+      havingClause = 'HAVING ' + amenitiesHaving;
+    }
+  } else if (hasDateFilter) {
+    havingClause = havingAvailable;
   }
 
   const whereClause = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
@@ -65,10 +95,13 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities }) => {
       r.price_per_night,
       r.max_guests,
       r.description,
+      r.total_quantity,
       r.created_at,
       COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities
-    FROM hotel.rooms r
+      ${availableSelect}
+    FROM hotel.room_types r
     ${amenityJoin}
+    ${bookingJoin}
     ${whereClause}
     GROUP BY r.id
     ${havingClause}
@@ -86,7 +119,14 @@ const createRoom = async ({
   max_guests,
   description,
   amenities,
+  total_quantity,
 }) => {
+  if (!total_quantity || total_quantity < 1) {
+    const error = new Error('total_quantity phải lớn hơn hoặc bằng 1');
+    error.status = 400;
+    throw error;
+  }
+
   const client = await pool.connect();
 
   try {
@@ -94,11 +134,11 @@ const createRoom = async ({
 
     const roomResult = await client.query(
       `
-        INSERT INTO hotel.rooms (hotel_id, name, price_per_night, max_guests, description)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, hotel_id, name, price_per_night, max_guests, description, created_at
+        INSERT INTO hotel.room_types (hotel_id, name, price_per_night, max_guests, description, total_quantity)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, hotel_id, name, price_per_night, max_guests, description, total_quantity, created_at
       `,
-      [hotel_id, name, price_per_night, max_guests, description],
+      [hotel_id, name, price_per_night, max_guests, description, total_quantity],
     );
 
     const room = roomResult.rows[0];
@@ -121,7 +161,7 @@ const createRoom = async ({
     for (const amenityId of amenityIds) {
       await client.query(
         `
-          INSERT INTO hotel.room_amenities (room_id, amenity_id)
+          INSERT INTO hotel.room_amenities (room_type_id, amenity_id)
           VALUES ($1, $2)
           ON CONFLICT DO NOTHING
         `,
@@ -153,10 +193,11 @@ const getRoomById = async (roomId) => {
         r.price_per_night,
         r.max_guests,
         r.description,
+        r.total_quantity,
         r.created_at,
         COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities
-      FROM hotel.rooms r
-      LEFT JOIN hotel.room_amenities ra ON ra.room_id = r.id
+      FROM hotel.room_types r
+      LEFT JOIN hotel.room_amenities ra ON ra.room_type_id = r.id
       LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id
       WHERE r.id = $1
       GROUP BY r.id

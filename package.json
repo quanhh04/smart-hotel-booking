@@ -21,6 +21,8 @@
     "pg": "^8.16.3"
   },
   "devDependencies": {
+    "fast-check": "^4.6.0",
+    "jest": "^30.3.0",
     "nodemon": "^3.1.14"
   }
 }

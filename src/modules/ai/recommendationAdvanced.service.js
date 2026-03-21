@@ -47,18 +47,18 @@ const getAdvancedRecommendations = async ({ guests, maxPrice, amenities, limit =
         ARRAY[]::text[]
       ) AS amenities,
       COALESCE(bc.booking_count, 0) AS booking_count
-    FROM hotel.rooms r
+    FROM hotel.room_types r
     INNER JOIN hotel.hotels h ON h.id = r.hotel_id
-    LEFT JOIN hotel.room_amenities ra ON ra.room_id = r.id
+    LEFT JOIN hotel.room_amenities ra ON ra.room_type_id = r.id
     LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id
     LEFT JOIN (
       SELECT
-        b.room_id,
+        b.room_type_id,
         COUNT(*)::int AS booking_count
       FROM booking.bookings b
       WHERE UPPER(b.status) = 'PAID'
-      GROUP BY b.room_id
-    ) bc ON bc.room_id = r.id
+      GROUP BY b.room_type_id
+    ) bc ON bc.room_type_id = r.id
     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
     GROUP BY r.id, h.id, bc.booking_count
   `;

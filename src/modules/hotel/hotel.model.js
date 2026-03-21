@@ -58,7 +58,7 @@ const getHotelDetailById = async (hotelId) => {
     FROM hotel.hotels h
     LEFT JOIN hotel.cities c ON c.id = h.city_id
     LEFT JOIN hotel.images img ON img.hotel_id = h.id
-    LEFT JOIN hotel.rooms r ON r.hotel_id = h.id
+    LEFT JOIN hotel.room_types r ON r.hotel_id = h.id
     WHERE h.id = $1
     GROUP BY h.id, c.id, img.url
     `,

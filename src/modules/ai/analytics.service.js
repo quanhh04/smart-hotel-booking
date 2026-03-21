@@ -1,13 +1,13 @@
 const pool = require('../../config/db');
 
-const trackRoomClick = async ({ roomId, userId }) => {
+const trackRoomClick = async ({ roomTypeId, userId }) => {
   const query = `
-    INSERT INTO ai.room_clicks (room_id, user_id)
+    INSERT INTO ai.room_clicks (room_type_id, user_id)
     VALUES ($1, $2)
-    RETURNING id, room_id, user_id, clicked_at
+    RETURNING id, room_type_id, user_id, clicked_at
   `;
 
-  const { rows } = await pool.query(query, [roomId, userId || null]);
+  const { rows } = await pool.query(query, [roomTypeId, userId || null]);
   return rows[0];
 };
 
@@ -40,13 +40,13 @@ const getTopAmenitiesAsked = async () => {
 const getTopRoomsClicked = async () => {
   const query = `
     SELECT
-      rc.room_id,
+      rc.room_type_id,
       r.name AS room_name,
       COUNT(*)::int AS count
     FROM ai.room_clicks rc
-    LEFT JOIN hotel.rooms r ON r.id = rc.room_id
-    GROUP BY rc.room_id, r.name
-    ORDER BY count DESC, rc.room_id ASC
+    LEFT JOIN hotel.room_types r ON r.id = rc.room_type_id
+    GROUP BY rc.room_type_id, r.name
+    ORDER BY count DESC, rc.room_type_id ASC
     LIMIT 10
   `;
 

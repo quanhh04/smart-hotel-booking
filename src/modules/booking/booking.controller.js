@@ -13,13 +13,12 @@ const createBooking = async (req, res) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
-console.log('Received booking request:', req.user, 'with body:', req.body);
-    const { room_id: roomId, check_in: checkIn, check_out: checkOut } = req.body;
+    const { room_type_id: roomTypeId, check_in: checkIn, check_out: checkOut } = req.body;
 
-    if (!roomId || !checkIn || !checkOut) {
+    if (!roomTypeId || !checkIn || !checkOut) {
       return res
         .status(400)
-        .json({ message: 'room_id, check_in, and check_out are required' });
+        .json({ message: 'room_type_id, check_in, and check_out are required' });
     }
 
     const parsedCheckIn = isValidDate(checkIn);
@@ -37,7 +36,7 @@ console.log('Received booking request:', req.user, 'with body:', req.body);
 
     const booking = await bookingService.createBooking({
       userId: req.user.userId,
-      roomId: Number(roomId),
+      roomTypeId: Number(roomTypeId),
       checkIn,
       checkOut,
     });

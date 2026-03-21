@@ -164,9 +164,9 @@ const buildSearchQuery = ({ guests, maxPrice, amenities, city }) => {
       h.name AS hotel_name,
       r.price_per_night,
       COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities
-    FROM hotel.rooms r
+    FROM hotel.room_types r
     JOIN hotel.hotels h ON h.id = r.hotel_id
-    LEFT JOIN hotel.room_amenities ra ON ra.room_id = r.id
+    LEFT JOIN hotel.room_amenities ra ON ra.room_type_id = r.id
     LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id
     ${whereClause}
     GROUP BY r.id, h.name

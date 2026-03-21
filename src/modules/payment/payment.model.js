@@ -8,7 +8,7 @@ const processMockPayment = async ({ bookingId, amount }) => {
 
     const bookingResult = await client.query(
       `
-        SELECT id, user_id, room_id, check_in, check_out, status, created_at
+        SELECT id, user_id, room_type_id, check_in, check_out, status, created_at
         FROM booking.bookings
         WHERE id = $1
         FOR UPDATE
@@ -37,7 +37,7 @@ const processMockPayment = async ({ bookingId, amount }) => {
         UPDATE booking.bookings
         SET status = 'PAID'
         WHERE id = $1
-        RETURNING id, user_id, room_id, check_in, check_out, status, created_at
+        RETURNING id, user_id, room_type_id, check_in, check_out, status, created_at
       `,
       [bookingId],
     );
@@ -61,11 +61,11 @@ const getPaymentsByUserId = async (userId) => {
     `
       SELECT
         p.id, p.booking_id, p.amount, p.status, p.created_at,
-        b.room_id, b.check_in, b.check_out,
+        b.room_type_id, b.check_in, b.check_out,
         r.name AS room_name, h.name AS hotel_name
       FROM booking.payments p
       JOIN booking.bookings b ON b.id = p.booking_id
-      LEFT JOIN hotel.rooms r ON r.id = b.room_id
+      LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
       LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
       WHERE b.user_id = $1
       ORDER BY p.created_at DESC

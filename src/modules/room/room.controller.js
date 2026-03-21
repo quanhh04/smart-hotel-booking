@@ -2,12 +2,27 @@ const roomService = require('./room.service');
 
 const getRooms = async (req, res) => {
   try {
-    const { minPrice, maxPrice, guests, amenities } = req.query;
+    const { minPrice, maxPrice, guests, amenities, check_in, check_out } = req.query;
+
+    if (check_in || check_out) {
+      if (check_in && isNaN(Date.parse(check_in))) {
+        return res.status(400).json({ message: 'Định dạng ngày không hợp lệ' });
+      }
+      if (check_out && isNaN(Date.parse(check_out))) {
+        return res.status(400).json({ message: 'Định dạng ngày không hợp lệ' });
+      }
+      if (check_in && check_out && new Date(check_in) >= new Date(check_out)) {
+        return res.status(400).json({ message: 'check_out phải sau check_in' });
+      }
+    }
+
     const rooms = await roomService.listRooms({
       minPrice,
       maxPrice,
       guests,
       amenities,
+      checkIn: check_in,
+      checkOut: check_out,
     });
     return res.status(200).json(rooms);
   } catch (error) {
@@ -34,6 +49,7 @@ const createRoom = async (req, res) => {
       max_guests,
       description,
       amenities,
+      total_quantity,
     } = req.body;
 
     if (
@@ -57,6 +73,7 @@ const createRoom = async (req, res) => {
       max_guests,
       description,
       amenities,
+      total_quantity,
     });
 
     return res.status(201).json(room);

@@ -23,14 +23,14 @@ const getUserIdFromAuthHeader = (authorizationHeader) => {
 
 const trackClick = async (req, res) => {
   try {
-    const { room_id: roomId } = req.body;
+    const { room_type_id: roomTypeId } = req.body;
 
-    if (!Number.isInteger(roomId) || roomId <= 0) {
-      return res.status(400).json({ message: 'room_id must be a positive integer' });
+    if (!Number.isInteger(roomTypeId) || roomTypeId <= 0) {
+      return res.status(400).json({ message: 'room_type_id must be a positive integer' });
     }
 
     const userId = getUserIdFromAuthHeader(req.headers.authorization);
-    const click = await analyticsService.trackRoomClick({ roomId, userId });
+    const click = await analyticsService.trackRoomClick({ roomTypeId, userId });
 
     return res.status(201).json(click);
   } catch (error) {

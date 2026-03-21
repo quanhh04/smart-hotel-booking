@@ -8,8 +8,8 @@ const getRecommendations = async ({ guests, maxPrice }) => {
       r.price_per_night,
       r.max_guests,
       COUNT(ra.amenity_id) AS amenity_count
-    FROM hotel.rooms r
-    LEFT JOIN hotel.room_amenities ra ON ra.room_id = r.id
+    FROM hotel.room_types r
+    LEFT JOIN hotel.room_amenities ra ON ra.room_type_id = r.id
     LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id
     WHERE r.max_guests >= $1
       AND r.price_per_night <= $2
