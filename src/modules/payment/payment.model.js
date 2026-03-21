@@ -56,6 +56,27 @@ const processMockPayment = async ({ bookingId, amount }) => {
   }
 };
 
+const getPaymentsByUserId = async (userId) => {
+  const result = await pool.query(
+    `
+      SELECT
+        p.id, p.booking_id, p.amount, p.status, p.created_at,
+        b.room_id, b.check_in, b.check_out,
+        r.name AS room_name, h.name AS hotel_name
+      FROM booking.payments p
+      JOIN booking.bookings b ON b.id = p.booking_id
+      LEFT JOIN hotel.rooms r ON r.id = b.room_id
+      LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      WHERE b.user_id = $1
+      ORDER BY p.created_at DESC
+    `,
+    [userId],
+  );
+
+  return result.rows;
+};
+
 module.exports = {
   processMockPayment,
+  getPaymentsByUserId,
 };

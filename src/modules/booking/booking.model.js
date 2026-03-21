@@ -92,8 +92,42 @@ console.log('Creating booking for room_id:', roomId, 'user_id:', userId);
   }
 };
 
+const getBookingsByUserId = async (userId) => {
+  const result = await pool.query(
+    `
+      SELECT
+        b.id, b.room_id, b.user_id, b.check_in, b.check_out, b.status, b.created_at,
+        r.name AS room_name, r.price_per_night, h.name AS hotel_name
+      FROM booking.bookings b
+      LEFT JOIN hotel.rooms r ON r.id = b.room_id
+      LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      WHERE b.user_id = $1
+      ORDER BY b.created_at DESC
+    `,
+    [userId],
+  );
+
+  return result.rows;
+};
+
+const cancelBooking = async ({ bookingId, userId }) => {
+  const result = await pool.query(
+    `
+      UPDATE booking.bookings
+      SET status = 'CANCELLED'
+      WHERE id = $1 AND user_id = $2 AND status = 'PENDING'
+      RETURNING id, room_id, user_id, check_in, check_out, status, created_at
+    `,
+    [bookingId, userId],
+  );
+
+  return result.rows[0] || null;
+};
+
 module.exports = {
   getRoomById,
   isRoomUnavailable,
   createBooking,
+  getBookingsByUserId,
+  cancelBooking,
 };

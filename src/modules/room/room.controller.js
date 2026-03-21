@@ -67,7 +67,28 @@ const createRoom = async (req, res) => {
   }
 };
 
+const getRoomDetail = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ message: 'Room id is invalid' });
+    }
+
+    const room = await roomService.getRoomDetail(id);
+    if (!room) {
+      return res.status(404).json({ message: 'Room not found' });
+    }
+
+    return res.status(200).json(room);
+  } catch (error) {
+    const status = error.status || 500;
+    const message = status === 500 ? 'Internal server error' : error.message;
+    return res.status(status).json({ message });
+  }
+};
+
 module.exports = {
   getRooms,
   createRoom,
+  getRoomDetail,
 };

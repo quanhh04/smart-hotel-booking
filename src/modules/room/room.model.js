@@ -8,17 +8,17 @@ const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities }) => {
 
   if (minPrice !== undefined) {
     values.push(Number(minPrice));
-    filters.push(`r.price_per_night >= $${values.length}`);
+    filters.push('r.price_per_night >= $' + values.length);
   }
 
   if (maxPrice !== undefined) {
     values.push(Number(maxPrice));
-    filters.push(`r.price_per_night <= $${values.length}`);
+    filters.push('r.price_per_night <= $' + values.length);
   }
 
   if (guests !== undefined) {
     values.push(Number(guests));
-    filters.push(`r.max_guests >= $${values.length}`);
+    filters.push('r.max_guests >= $' + values.length);
   }
 
   if (amenities && amenities.length > 0) {
@@ -51,11 +51,11 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities }) => {
   let havingClause = '';
   if (joinAmenities) {
     values.push(amenitiesCount);
-    havingClause = `HAVING COUNT(DISTINCT a.name) = $${values.length}`;
-    filters.push(`a.name = ANY($${values.length - 1})`);
+    havingClause = 'HAVING COUNT(DISTINCT a.name) = $' + values.length;
+    filters.push('a.name = ANY($' + (values.length - 1) + ')');
   }
 
-  const whereClause = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
+  const whereClause = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
 
   const query = `
     SELECT
@@ -143,7 +143,32 @@ const createRoom = async ({
   }
 };
 
+const getRoomById = async (roomId) => {
+  const result = await pool.query(
+    `
+      SELECT
+        r.id,
+        r.hotel_id,
+        r.name,
+        r.price_per_night,
+        r.max_guests,
+        r.description,
+        r.created_at,
+        COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities
+      FROM hotel.rooms r
+      LEFT JOIN hotel.room_amenities ra ON ra.room_id = r.id
+      LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id
+      WHERE r.id = $1
+      GROUP BY r.id
+    `,
+    [roomId],
+  );
+
+  return result.rows[0] || null;
+};
+
 module.exports = {
   getRooms,
   createRoom,
+  getRoomById,
 };

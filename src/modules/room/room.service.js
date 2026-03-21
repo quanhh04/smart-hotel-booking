@@ -20,7 +20,10 @@ const addRoom = async ({
     amenities,
   });
 
+const getRoomDetail = async (roomId) => roomModel.getRoomById(roomId);
+
 module.exports = {
   listRooms,
   addRoom,
+  getRoomDetail,
 };

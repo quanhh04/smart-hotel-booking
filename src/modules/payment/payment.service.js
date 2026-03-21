@@ -13,6 +13,10 @@ const createPayment = async ({ bookingId, amount }) => {
   });
 };
 
+const getUserPayments = async (userId) =>
+  paymentModel.getPaymentsByUserId(userId);
+
 module.exports = {
   createPayment,
+  getUserPayments,
 };
