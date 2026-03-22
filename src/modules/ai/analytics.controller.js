@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const analyticsService = require('./analytics.service');
+const { asyncHandler } = require('../../common/helpers/controller');
+const { createError } = require('../../common/helpers/error');
 
 const getUserIdFromAuthHeader = (authorizationHeader) => {
   if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
@@ -7,51 +9,31 @@ const getUserIdFromAuthHeader = (authorizationHeader) => {
   }
 
   const token = authorizationHeader.slice('Bearer '.length).trim();
-  if (!token) {
-    return null;
-  }
+  if (!token) return null;
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     return decoded.userId || decoded.user_id || null;
-  } catch (error) {
-    const authError = new Error('Bạn chưa đăng nhập');
-    authError.status = 401;
-    throw authError;
+  } catch {
+    throw createError('Bạn chưa đăng nhập', 401);
   }
 };
 
-const trackClick = async (req, res) => {
-  try {
-    const { room_type_id: roomTypeId } = req.body;
+const trackClick = asyncHandler(async (req, res) => {
+  const { room_type_id: roomTypeId } = req.body;
 
-    if (!Number.isInteger(roomTypeId) || roomTypeId <= 0) {
-      return res.status(400).json({ message: 'room_type_id phải là số nguyên dương' });
-    }
-
-    const userId = getUserIdFromAuthHeader(req.headers.authorization);
-    const click = await analyticsService.trackRoomClick({ roomTypeId, userId });
-
-    return res.status(201).json(click);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
+  if (!Number.isInteger(roomTypeId) || roomTypeId <= 0) {
+    return res.status(400).json({ message: 'room_type_id phải là số nguyên dương' });
   }
-};
 
-const getStats = async (req, res) => {
-  try {
-    const stats = await analyticsService.getStats();
-    return res.status(200).json(stats);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
-  }
-};
+  const userId = getUserIdFromAuthHeader(req.headers.authorization);
+  const click = await analyticsService.trackRoomClick({ roomTypeId, userId });
+  return res.status(201).json(click);
+});
 
-module.exports = {
-  trackClick,
-  getStats,
-};
+const getStats = asyncHandler(async (_req, res) => {
+  const stats = await analyticsService.getStats();
+  return res.status(200).json(stats);
+});
+
+module.exports = { trackClick, getStats };

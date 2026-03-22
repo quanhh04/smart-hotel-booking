@@ -1,69 +1,37 @@
 const bookingService = require('./booking.service');
+const { asyncHandler } = require('../../common/helpers/controller');
 
-const createBooking = async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
-    }
-    const { room_type_id: roomTypeId, check_in: checkIn, check_out: checkOut } = req.body;
+const createBooking = asyncHandler(async (req, res) => {
+  const { room_type_id: roomTypeId, check_in: checkIn, check_out: checkOut } = req.body;
 
-    const booking = await bookingService.createBooking({
-      userId: req.user.userId,
-      roomTypeId: Number(roomTypeId),
-      checkIn,
-      checkOut,
-    });
+  const booking = await bookingService.createBooking({
+    userId: req.user.userId,
+    roomTypeId: Number(roomTypeId),
+    checkIn,
+    checkOut,
+  });
 
-    return res.status(201).json(booking);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
+  return res.status(201).json(booking);
+});
+
+const getBookings = asyncHandler(async (req, res) => {
+  const bookings = await bookingService.getUserBookings(req.user.userId);
+  return res.status(200).json(bookings);
+});
+
+const cancelBooking = asyncHandler(async (req, res) => {
+  const bookingId = Number(req.params.id);
+
+  const booking = await bookingService.cancelBooking({
+    bookingId,
+    userId: req.user.userId,
+  });
+
+  if (!booking) {
+    return res.status(404).json({ message: 'Không tìm thấy đặt phòng hoặc không thể hủy' });
   }
-};
 
-const getBookings = async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
-    }
+  return res.status(200).json(booking);
+});
 
-    const bookings = await bookingService.getUserBookings(req.user.userId);
-    return res.status(200).json(bookings);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
-  }
-};
-
-const cancelBooking = async (req, res) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
-    }
-
-    const bookingId = Number(req.params.id);
-
-    const booking = await bookingService.cancelBooking({
-      bookingId,
-      userId: req.user.userId,
-    });
-
-    if (!booking) {
-      return res.status(404).json({ message: 'Không tìm thấy đặt phòng hoặc không thể hủy' });
-    }
-
-    return res.status(200).json(booking);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
-  }
-};
-
-module.exports = {
-  createBooking,
-  getBookings,
-  cancelBooking,
-};
+module.exports = { createBooking, getBookings, cancelBooking };

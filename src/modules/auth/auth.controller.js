@@ -1,39 +1,20 @@
 const authService = require('./auth.service');
+const { asyncHandler } = require('../../common/helpers/controller');
 
-const register = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+const register = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  const user = await authService.register(email, password);
+  return res.status(201).json(user);
+});
 
-    const user = await authService.register(email, password);
-    return res.status(201).json(user);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
-  }
+const login = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+  const token = await authService.login(email, password);
+  return res.status(200).json(token);
+});
+
+const me = (req, res) => {
+  res.json({ user: req.user });
 };
 
-const login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const token = await authService.login(email, password);
-    return res.status(200).json(token);
-  } catch (error) {
-    const status = error.status || 500;
-    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
-    return res.status(status).json({ message });
-  }
-};
-
-const me = async (req, res) => {
-  res.json({
-    user: req.user,
-  });
-};
-
-module.exports = {
-  register,
-  login,
-  me,
-};
+module.exports = { register, login, me };

@@ -1,4 +1,5 @@
 const pool = require('../../config/db');
+const { createError } = require('../../common/helpers/error');
 
 const createBooking = async ({ userId, roomTypeId, checkIn, checkOut }) => {
   const client = await pool.connect();
@@ -6,7 +7,6 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut }) => {
   try {
     await client.query('BEGIN');
 
-    // Lock room_type row to prevent concurrent overbooking
     const roomTypeResult = await client.query(
       `
         SELECT id, hotel_id, name, price_per_night, max_guests, description, total_quantity, created_at
@@ -19,9 +19,7 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut }) => {
 
     const roomType = roomTypeResult.rows[0];
     if (!roomType) {
-      const error = new Error('Loại phòng không tồn tại');
-      error.status = 404;
-      throw error;
+      throw createError('Loại phòng không tồn tại', 404);
     }
 
     // Count active bookings overlapping the requested dates
@@ -40,9 +38,7 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut }) => {
     const availableQuantity = roomType.total_quantity - bookedCount;
 
     if (availableQuantity <= 0) {
-      const error = new Error('Loại phòng đã hết phòng trống cho khoảng ngày này');
-      error.status = 409;
-      throw error;
+      throw createError('Loại phòng đã hết phòng trống cho khoảng ngày này', 409);
     }
 
     const bookingResult = await client.query(
@@ -103,9 +99,7 @@ const cancelBooking = async ({ bookingId, userId }) => {
   }
 
   if (booking.status !== 'PENDING') {
-    const error = new Error('Chỉ có thể hủy booking ở trạng thái PENDING');
-    error.status = 400;
-    throw error;
+    throw createError('Chỉ có thể hủy booking ở trạng thái PENDING');
   }
 
   const result = await pool.query(

@@ -1,4 +1,5 @@
 const pool = require('../../config/db');
+const { createError } = require('../../common/helpers/error');
 
 const processMockPayment = async ({ bookingId, amount }) => {
   const client = await pool.connect();
@@ -18,9 +19,7 @@ const processMockPayment = async ({ bookingId, amount }) => {
 
     const booking = bookingResult.rows[0];
     if (!booking) {
-      const error = new Error('Không tìm thấy đặt phòng');
-      error.status = 404;
-      throw error;
+      throw createError('Không tìm thấy đặt phòng', 404);
     }
 
     const paymentResult = await client.query(

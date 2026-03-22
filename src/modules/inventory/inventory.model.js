@@ -1,10 +1,9 @@
 const pool = require('../../config/db');
+const { createError } = require('../../common/helpers/error');
 
 const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
   if (totalQuantity < 0) {
-    const error = new Error('total_quantity không được âm');
-    error.status = 400;
-    throw error;
+    throw createError('total_quantity không được âm');
   }
 
   const client = await pool.connect();
@@ -19,9 +18,7 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
     );
 
     if (roomResult.rows.length === 0) {
-      const error = new Error('Loại phòng không tồn tại');
-      error.status = 404;
-      throw error;
+      throw createError('Loại phòng không tồn tại', 404);
     }
 
     // Count active bookings for future dates
@@ -37,9 +34,7 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
     const activeCount = parseInt(bookingResult.rows[0].active_count, 10);
 
     if (totalQuantity < activeCount) {
-      const error = new Error('Không thể giảm tồn kho dưới số booking đang hoạt động');
-      error.status = 409;
-      throw error;
+      throw createError('Không thể giảm tồn kho dưới số booking đang hoạt động', 409);
     }
 
     const updateResult = await client.query(

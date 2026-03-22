@@ -121,12 +121,6 @@ const createRoom = async ({
   amenities,
   total_quantity,
 }) => {
-  if (!total_quantity || total_quantity < 1) {
-    const error = new Error('total_quantity phải lớn hơn hoặc bằng 1');
-    error.status = 400;
-    throw error;
-  }
-
   const client = await pool.connect();
 
   try {
