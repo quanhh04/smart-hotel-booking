@@ -3,7 +3,7 @@ const bookingService = require('./booking.service');
 const createBooking = async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
     }
     const { room_type_id: roomTypeId, check_in: checkIn, check_out: checkOut } = req.body;
 
@@ -17,7 +17,7 @@ const createBooking = async (req, res) => {
     return res.status(201).json(booking);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };
@@ -25,14 +25,14 @@ const createBooking = async (req, res) => {
 const getBookings = async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
     }
 
     const bookings = await bookingService.getUserBookings(req.user.userId);
     return res.status(200).json(bookings);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };
@@ -40,7 +40,7 @@ const getBookings = async (req, res) => {
 const cancelBooking = async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
     }
 
     const bookingId = Number(req.params.id);
@@ -51,13 +51,13 @@ const cancelBooking = async (req, res) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ message: 'Booking not found or cannot be cancelled' });
+      return res.status(404).json({ message: 'Không tìm thấy đặt phòng hoặc không thể hủy' });
     }
 
     return res.status(200).json(booking);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };

@@ -18,7 +18,7 @@ const processMockPayment = async ({ bookingId, amount }) => {
 
     const booking = bookingResult.rows[0];
     if (!booking) {
-      const error = new Error('Booking not found');
+      const error = new Error('Không tìm thấy đặt phòng');
       error.status = 404;
       throw error;
     }

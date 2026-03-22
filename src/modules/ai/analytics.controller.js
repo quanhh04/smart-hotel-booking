@@ -15,7 +15,7 @@ const getUserIdFromAuthHeader = (authorizationHeader) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     return decoded.userId || decoded.user_id || null;
   } catch (error) {
-    const authError = new Error('Unauthorized');
+    const authError = new Error('Bạn chưa đăng nhập');
     authError.status = 401;
     throw authError;
   }
@@ -26,7 +26,7 @@ const trackClick = async (req, res) => {
     const { room_type_id: roomTypeId } = req.body;
 
     if (!Number.isInteger(roomTypeId) || roomTypeId <= 0) {
-      return res.status(400).json({ message: 'room_type_id must be a positive integer' });
+      return res.status(400).json({ message: 'room_type_id phải là số nguyên dương' });
     }
 
     const userId = getUserIdFromAuthHeader(req.headers.authorization);
@@ -35,7 +35,7 @@ const trackClick = async (req, res) => {
     return res.status(201).json(click);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };
@@ -46,7 +46,7 @@ const getStats = async (req, res) => {
     return res.status(200).json(stats);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };

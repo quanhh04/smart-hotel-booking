@@ -5,7 +5,7 @@ const authModel = require('./auth.model');
 const register = async (email, password) => {
   const existingUser = await authModel.findUserByEmail(email);
   if (existingUser) {
-    const error = new Error('Email already in use');
+    const error = new Error('Email đã được sử dụng');
     error.status = 409;
     throw error;
   }
@@ -23,14 +23,14 @@ const register = async (email, password) => {
 const login = async (email, password) => {
   const user = await authModel.findUserByEmail(email);
   if (!user) {
-    const error = new Error('Invalid email or password');
+    const error = new Error('Email hoặc mật khẩu không đúng');
     error.status = 401;
     throw error;
   }
 
   const passwordMatch = await bcrypt.compare(password, user.password);
   if (!passwordMatch) {
-    const error = new Error('Invalid email or password');
+    const error = new Error('Email hoặc mật khẩu không đúng');
     error.status = 401;
     throw error;
   }

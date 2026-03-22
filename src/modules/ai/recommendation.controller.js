@@ -6,11 +6,11 @@ const getRecommendations = async (req, res) => {
     const maxPrice = Number(req.query.maxPrice);
 
     if (!Number.isInteger(guests) || guests <= 0) {
-      return res.status(400).json({ message: 'guests must be a positive integer' });
+      return res.status(400).json({ message: 'Số khách phải là số nguyên dương' });
     }
 
     if (Number.isNaN(maxPrice) || maxPrice <= 0) {
-      return res.status(400).json({ message: 'maxPrice must be a positive number' });
+      return res.status(400).json({ message: 'Giá tối đa phải là số dương' });
     }
 
     const recommendations = await recommendationService.getRecommendations({
@@ -20,7 +20,7 @@ const getRecommendations = async (req, res) => {
 
     return res.status(200).json(recommendations);
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Lỗi hệ thống, vui lòng thử lại sau' });
   }
 };
 

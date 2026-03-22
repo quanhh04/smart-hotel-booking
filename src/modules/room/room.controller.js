@@ -15,7 +15,7 @@ const getRooms = async (req, res) => {
     return res.status(200).json(rooms);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };
@@ -23,11 +23,11 @@ const getRooms = async (req, res) => {
 const createRoom = async (req, res) => {
   try {
     if (!req.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(401).json({ message: 'Bạn chưa đăng nhập' });
     }
 
     if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden' });
+      return res.status(403).json({ message: 'Bạn không có quyền thực hiện thao tác này' });
     }
 
     const {
@@ -53,7 +53,7 @@ const createRoom = async (req, res) => {
     return res.status(201).json(room);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };
@@ -64,13 +64,13 @@ const getRoomDetail = async (req, res) => {
 
     const room = await roomService.getRoomDetail(id);
     if (!room) {
-      return res.status(404).json({ message: 'Room not found' });
+      return res.status(404).json({ message: 'Không tìm thấy phòng' });
     }
 
     return res.status(200).json(room);
   } catch (error) {
     const status = error.status || 500;
-    const message = status === 500 ? 'Internal server error' : error.message;
+    const message = status === 500 ? 'Lỗi hệ thống, vui lòng thử lại sau' : error.message;
     return res.status(status).json({ message });
   }
 };

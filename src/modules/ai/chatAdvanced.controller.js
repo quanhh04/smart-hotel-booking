@@ -6,7 +6,7 @@ const chatAdvanced = async (req, res) => {
 
     if (typeof message !== 'string') {
       return res.status(400).json({
-        error: '"message" must be a string.',
+        error: 'Trường "message" phải là chuỗi ký tự.',
       });
     }
 
@@ -14,7 +14,7 @@ const chatAdvanced = async (req, res) => {
     return res.status(200).json(response);
   } catch (error) {
     return res.status(500).json({
-      error: error.message || 'Internal server error.',
+      error: error.message || 'Lỗi hệ thống, vui lòng thử lại sau.',
     });
   }
 };

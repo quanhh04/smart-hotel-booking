@@ -5,7 +5,7 @@ const chat = (req, res) => {
 
   if (typeof message !== 'string') {
     return res.status(400).json({
-      error: '"message" must be a string.',
+      error: 'Trường "message" phải là chuỗi ký tự.',
     });
   }
 

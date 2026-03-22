@@ -2,7 +2,7 @@ const paymentModel = require('./payment.model');
 
 const createPayment = async ({ bookingId, amount }) => {
   if (!Number.isFinite(amount) || amount <= 0) {
-    const error = new Error('amount must be a positive number');
+    const error = new Error('Số tiền phải là số dương');
     error.status = 400;
     throw error;
   }
