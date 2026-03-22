@@ -26,7 +26,7 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
       `SELECT COUNT(*) AS active_count
        FROM booking.bookings
        WHERE room_type_id = $1
-         AND status IN ('PENDING', 'PAID')
+         AND status IN ('PENDING', 'CONFIRMED', 'PAID')
          AND check_out > NOW()`,
       [roomTypeId],
     );
@@ -82,7 +82,7 @@ const getInventoryByHotelId = async ({ hotelId, checkIn, checkOut }) => {
      FROM hotel.room_types rt
      LEFT JOIN booking.bookings b
        ON b.room_type_id = rt.id
-       AND b.status IN ('PENDING', 'PAID')
+       AND b.status IN ('PENDING', 'CONFIRMED', 'PAID')
        AND NOT (b.check_out <= $2 OR b.check_in >= $3)
      WHERE rt.hotel_id = $1
      GROUP BY rt.id

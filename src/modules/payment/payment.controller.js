@@ -2,8 +2,8 @@ const paymentService = require('./payment.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 
 const payBooking = asyncHandler(async (req, res) => {
-  const { booking_id: bookingId, amount } = req.body;
-  const result = await paymentService.createPayment({ bookingId, amount });
+  const { booking_id: bookingId } = req.body;
+  const result = await paymentService.createPayment({ bookingId, userId: req.user.userId });
   return res.status(201).json(result);
 });
 

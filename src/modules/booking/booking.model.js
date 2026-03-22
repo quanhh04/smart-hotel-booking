@@ -1,7 +1,7 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
 
-const createBooking = async ({ userId, roomTypeId, checkIn, checkOut }) => {
+const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMethod }) => {
   const client = await pool.connect();
 
   try {
@@ -22,38 +22,45 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut }) => {
       throw createError('Loại phòng không tồn tại', 404);
     }
 
-    // Count active bookings overlapping the requested dates
+    // Đếm booking đang hoạt động trùng ngày
     const countResult = await client.query(
       `
         SELECT COUNT(*)::int AS booked_count
         FROM booking.bookings
         WHERE room_type_id = $1
-          AND status IN ('PENDING', 'PAID')
+          AND status IN ('PENDING', 'CONFIRMED', 'PAID')
           AND NOT (check_out <= $2 OR check_in >= $3)
       `,
       [roomTypeId, checkIn, checkOut],
     );
 
     const bookedCount = countResult.rows[0].booked_count;
-    const availableQuantity = roomType.total_quantity - bookedCount;
-
-    if (availableQuantity <= 0) {
+    if (roomType.total_quantity - bookedCount <= 0) {
       throw createError('Loại phòng đã hết phòng trống cho khoảng ngày này', 409);
     }
 
+    // pay_at_hotel → CONFIRMED ngay, online → PENDING chờ thanh toán
+    const status = paymentMethod === 'pay_at_hotel' ? 'CONFIRMED' : 'PENDING';
+
     const bookingResult = await client.query(
       `
-        INSERT INTO booking.bookings (room_type_id, user_id, check_in, check_out, status)
-        VALUES ($1, $2, $3, $4, 'PENDING')
-        RETURNING id, room_type_id, user_id, check_in, check_out, status, created_at
+        INSERT INTO booking.bookings (room_type_id, user_id, check_in, check_out, status, payment_method)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, room_type_id, user_id, check_in, check_out, status, payment_method, created_at
       `,
-      [roomTypeId, userId, checkIn, checkOut],
+      [roomTypeId, userId, checkIn, checkOut, status, paymentMethod],
     );
 
     await client.query('COMMIT');
 
+    // Tính tổng tiền để client biết
+    const nights = Math.round((new Date(checkOut) - new Date(checkIn)) / (24 * 60 * 60 * 1000));
+    const totalAmount = Number(roomType.price_per_night) * nights;
+
     return {
       ...bookingResult.rows[0],
+      total_amount: totalAmount,
+      nights,
       room_type: roomType,
     };
   } catch (error) {
@@ -68,7 +75,8 @@ const getBookingsByUserId = async (userId) => {
   const result = await pool.query(
     `
       SELECT
-        b.id, b.room_type_id, b.user_id, b.check_in, b.check_out, b.status, b.created_at,
+        b.id, b.room_type_id, b.user_id, b.check_in, b.check_out,
+        b.status, b.payment_method, b.created_at,
         r.name AS room_name, r.price_per_night, h.name AS hotel_name
       FROM booking.bookings b
       LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
@@ -83,10 +91,9 @@ const getBookingsByUserId = async (userId) => {
 };
 
 const cancelBooking = async ({ bookingId, userId }) => {
-  // First check if booking exists and get its current status
   const checkResult = await pool.query(
     `
-      SELECT id, status
+      SELECT id, status, payment_method
       FROM booking.bookings
       WHERE id = $1 AND user_id = $2
     `,
@@ -98,16 +105,17 @@ const cancelBooking = async ({ bookingId, userId }) => {
     return null;
   }
 
-  if (booking.status !== 'PENDING') {
-    throw createError('Chỉ có thể hủy booking ở trạng thái PENDING');
+  // Cho phép hủy booking PENDING (online chưa thanh toán) hoặc CONFIRMED (pay_at_hotel)
+  if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
+    throw createError('Chỉ có thể hủy đặt phòng chưa thanh toán');
   }
 
   const result = await pool.query(
     `
       UPDATE booking.bookings
       SET status = 'CANCELLED'
-      WHERE id = $1 AND user_id = $2 AND status = 'PENDING'
-      RETURNING id, room_type_id, user_id, check_in, check_out, status, created_at
+      WHERE id = $1 AND user_id = $2 AND status IN ('PENDING', 'CONFIRMED')
+      RETURNING id, room_type_id, user_id, check_in, check_out, status, payment_method, created_at
     `,
     [bookingId, userId],
   );
@@ -115,8 +123,4 @@ const cancelBooking = async ({ bookingId, userId }) => {
   return result.rows[0];
 };
 
-module.exports = {
-  createBooking,
-  getBookingsByUserId,
-  cancelBooking,
-};
+module.exports = { createBooking, getBookingsByUserId, cancelBooking };

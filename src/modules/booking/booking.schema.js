@@ -19,6 +19,9 @@ const createBooking = {
       "date.greater": "Ngày trả phòng phải sau ngày nhận phòng",
       "any.required": "Ngày trả phòng là bắt buộc",
     }),
+    payment_method: Joi.string().valid("online", "pay_at_hotel").default("online").messages({
+      "any.only": "Hình thức thanh toán phải là \"online\" hoặc \"pay_at_hotel\"",
+    }),
   }),
 };
 

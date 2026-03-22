@@ -2,13 +2,19 @@ const bookingService = require('./booking.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 
 const createBooking = asyncHandler(async (req, res) => {
-  const { room_type_id: roomTypeId, check_in: checkIn, check_out: checkOut } = req.body;
+  const {
+    room_type_id: roomTypeId,
+    check_in: checkIn,
+    check_out: checkOut,
+    payment_method: paymentMethod,
+  } = req.body;
 
   const booking = await bookingService.createBooking({
     userId: req.user.userId,
     roomTypeId: Number(roomTypeId),
     checkIn,
     checkOut,
+    paymentMethod: paymentMethod || 'online',
   });
 
   return res.status(201).json(booking);

@@ -65,7 +65,7 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkO
   if (hasDateFilter) {
     bookingJoin = `LEFT JOIN booking.bookings b
       ON b.room_type_id = r.id
-      AND b.status IN ('PENDING', 'PAID')
+      AND b.status IN ('PENDING', 'CONFIRMED', 'PAID')
       AND NOT (b.check_out <= $1 OR b.check_in >= $2)`;
     availableSelect = ',\n      r.total_quantity - COUNT(DISTINCT b.id) AS available_quantity';
     havingAvailable = 'HAVING r.total_quantity - COUNT(DISTINCT b.id) > 0';
