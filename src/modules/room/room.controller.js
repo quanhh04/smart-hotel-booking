@@ -4,18 +4,6 @@ const getRooms = async (req, res) => {
   try {
     const { minPrice, maxPrice, guests, amenities, check_in, check_out } = req.query;
 
-    if (check_in || check_out) {
-      if (check_in && isNaN(Date.parse(check_in))) {
-        return res.status(400).json({ message: 'Định dạng ngày không hợp lệ' });
-      }
-      if (check_out && isNaN(Date.parse(check_out))) {
-        return res.status(400).json({ message: 'Định dạng ngày không hợp lệ' });
-      }
-      if (check_in && check_out && new Date(check_in) >= new Date(check_out)) {
-        return res.status(400).json({ message: 'check_out phải sau check_in' });
-      }
-    }
-
     const rooms = await roomService.listRooms({
       minPrice,
       maxPrice,
@@ -52,20 +40,6 @@ const createRoom = async (req, res) => {
       total_quantity,
     } = req.body;
 
-    if (
-      !hotel_id ||
-      !name ||
-      price_per_night === undefined ||
-      max_guests === undefined ||
-      !description ||
-      !Array.isArray(amenities)
-    ) {
-      return res.status(400).json({
-        message:
-          'hotel_id, name, price_per_night, max_guests, description, and amenities are required',
-      });
-    }
-
     const room = await roomService.addRoom({
       hotel_id,
       name,
@@ -87,9 +61,6 @@ const createRoom = async (req, res) => {
 const getRoomDetail = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ message: 'Room id is invalid' });
-    }
 
     const room = await roomService.getRoomDetail(id);
     if (!room) {

@@ -11,15 +11,8 @@ const updateInventory = async (req, res) => {
     }
 
     const roomTypeId = Number(req.params.id);
-    if (!Number.isFinite(roomTypeId)) {
-      return res.status(400).json({ message: 'Room type id is invalid' });
-    }
 
     const { total_quantity } = req.body;
-
-    if (total_quantity === undefined || total_quantity === null) {
-      return res.status(400).json({ message: 'total_quantity là bắt buộc' });
-    }
 
     const result = await inventoryService.updateRoomTypeQuantity({
       roomTypeId,
@@ -45,23 +38,8 @@ const getHotelInventory = async (req, res) => {
     }
 
     const hotelId = Number(req.params.id);
-    if (!Number.isFinite(hotelId)) {
-      return res.status(400).json({ message: 'Hotel id is invalid' });
-    }
 
     const { check_in, check_out } = req.query;
-
-    if (check_in || check_out) {
-      if (check_in && isNaN(Date.parse(check_in))) {
-        return res.status(400).json({ message: 'Định dạng ngày không hợp lệ' });
-      }
-      if (check_out && isNaN(Date.parse(check_out))) {
-        return res.status(400).json({ message: 'Định dạng ngày không hợp lệ' });
-      }
-      if (check_in && check_out && new Date(check_in) >= new Date(check_out)) {
-        return res.status(400).json({ message: 'check_out phải sau check_in' });
-      }
-    }
 
     const inventory = await inventoryService.getHotelInventory({
       hotelId,

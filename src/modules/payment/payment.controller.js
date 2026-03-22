@@ -8,12 +8,6 @@ const payBooking = async (req, res) => {
 
     const { booking_id: bookingId, amount } = req.body;
 
-    if (!Number.isInteger(bookingId) || !Number.isFinite(amount)) {
-      return res
-        .status(400)
-        .json({ message: 'booking_id and amount are required as numbers' });
-    }
-
     const result = await paymentService.createPayment({
       bookingId,
       amount,

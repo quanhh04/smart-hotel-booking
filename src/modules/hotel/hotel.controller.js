@@ -23,12 +23,6 @@ const createHotel = async (req, res) => {
 
     const { name, address, description } = req.body;
 
-    if (!name || !address || !description) {
-      return res
-        .status(400)
-        .json({ message: 'Name, address, and description are required' });
-    }
-
     const hotel = await hotelService.addHotel({ name, address, description });
     return res.status(201).json(hotel);
   } catch (error) {
@@ -40,9 +34,6 @@ const createHotel = async (req, res) => {
 const getHotelDetail = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(400).json({ message: 'Hotel id is invalid' });
-    }
 
     const data = await hotelService.getHotelDetail(id);
     if (!data) {

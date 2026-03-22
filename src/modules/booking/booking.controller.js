@@ -1,38 +1,11 @@
 const bookingService = require('./booking.service');
 
-const isValidDate = (value) => {
-  if (!value) {
-    return false;
-  }
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? null : new Date(timestamp);
-};
-
 const createBooking = async (req, res) => {
   try {
     if (!req.user) {
       return res.status(401).json({ message: 'Unauthorized' });
     }
     const { room_type_id: roomTypeId, check_in: checkIn, check_out: checkOut } = req.body;
-
-    if (!roomTypeId || !checkIn || !checkOut) {
-      return res
-        .status(400)
-        .json({ message: 'room_type_id, check_in, and check_out are required' });
-    }
-
-    const parsedCheckIn = isValidDate(checkIn);
-    const parsedCheckOut = isValidDate(checkOut);
-
-    if (!parsedCheckIn || !parsedCheckOut) {
-      return res.status(400).json({ message: 'Invalid date format' });
-    }
-
-    if (parsedCheckIn >= parsedCheckOut) {
-      return res
-        .status(400)
-        .json({ message: 'check_out must be after check_in' });
-    }
 
     const booking = await bookingService.createBooking({
       userId: req.user.userId,
@@ -71,9 +44,6 @@ const cancelBooking = async (req, res) => {
     }
 
     const bookingId = Number(req.params.id);
-    if (!Number.isFinite(bookingId)) {
-      return res.status(400).json({ message: 'Booking id is invalid' });
-    }
 
     const booking = await bookingService.cancelBooking({
       bookingId,
