@@ -11,6 +11,7 @@ const paymentRoutes = require('./modules/payment/payment.route');
 const aiRoutes = require('./modules/ai/ai.route');
 const roomRoutes = require('./modules/room/room.route');
 const inventoryRoutes = require('./modules/inventory/inventory.route');
+const reviewRoutes = require('./modules/review/review.route');
 
 const app = express();
 
@@ -30,5 +31,6 @@ app.use('/payments', paymentRoutes);
 app.use('/ai', aiRoutes);
 app.use('/rooms', roomRoutes);
 app.use('/', inventoryRoutes);
+app.use('/reviews', reviewRoutes);
 
 module.exports = app;
