@@ -5,7 +5,7 @@ const getNotifications = asyncHandler(async (req, res) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 10;
 
-  const result = await notificationService.getUserNotifications(req.user.id, page, limit);
+  const result = await notificationService.getUserNotifications(req.user.userId, page, limit);
 
   return res.status(200).json({
     notifications: result.notifications,
@@ -19,13 +19,13 @@ const getNotifications = asyncHandler(async (req, res) => {
 const markAsRead = asyncHandler(async (req, res) => {
   const notificationId = Number(req.params.id);
 
-  const updated = await notificationService.markAsRead(notificationId, req.user.id);
+  const updated = await notificationService.markAsRead(notificationId, req.user.userId);
 
   return res.status(200).json({ id: updated.id, is_read: true });
 });
 
 const markAllAsRead = asyncHandler(async (req, res) => {
-  const updatedCount = await notificationService.markAllAsRead(req.user.id);
+  const updatedCount = await notificationService.markAllAsRead(req.user.userId);
 
   return res.status(200).json({ updated_count: updatedCount });
 });
@@ -33,7 +33,7 @@ const markAllAsRead = asyncHandler(async (req, res) => {
 const deleteNotification = asyncHandler(async (req, res) => {
   const notificationId = Number(req.params.id);
 
-  await notificationService.deleteNotification(notificationId, req.user.id);
+  await notificationService.deleteNotification(notificationId, req.user.userId);
 
   return res.status(200).json({ message: 'Xóa thông báo thành công' });
 });
