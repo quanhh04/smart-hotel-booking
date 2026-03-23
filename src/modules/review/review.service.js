@@ -1,5 +1,6 @@
 const reviewModel = require('./review.model');
 const { createError } = require('../../common/helpers/error');
+const notificationService = require('../notification/notification.service');
 
 const createReview = async ({ userId, bookingId, rating, comment }) => {
   const booking = await reviewModel.getBookingForReview(bookingId);
@@ -29,6 +30,8 @@ const createReview = async ({ userId, bookingId, rating, comment }) => {
     rating,
     comment,
   });
+
+  notificationService.notifyReviewPosted(review);
 
   return review;
 };
