@@ -62,4 +62,33 @@ const sendBookingConfirmation = async ({ to, bookingId, hotelName, roomName, che
   }
 };
 
-module.exports = { sendBookingConfirmation, getTransporter };
+const sendCheckInReminder = async ({ to, bookingId, hotelName, roomName, checkIn }) => {
+  try {
+    const transport = await getTransporter();
+    const info = await transport.sendMail({
+      from: process.env.SMTP_FROM || 'noreply@smarthotel.com',
+      to,
+      subject: `Nhắc nhở check-in đặt phòng #${bookingId}`,
+      html: `
+        <h2>Nhắc nhở check-in</h2>
+        <p>Xin chào, ngày mai là ngày nhận phòng của bạn tại <strong>${hotelName}</strong>.</p>
+        <table>
+          <tr><td><strong>Mã đặt phòng:</strong></td><td>${bookingId}</td></tr>
+          <tr><td><strong>Khách sạn:</strong></td><td>${hotelName}</td></tr>
+          <tr><td><strong>Loại phòng:</strong></td><td>${roomName}</td></tr>
+          <tr><td><strong>Ngày nhận phòng:</strong></td><td>${checkIn}</td></tr>
+        </table>
+        <p>Vui lòng chuẩn bị và đến đúng giờ. Chúc bạn có kỳ nghỉ vui vẻ!</p>
+      `,
+    });
+
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log('Preview email:', previewUrl);
+    }
+  } catch (error) {
+    console.error(`Failed to send check-in reminder email for booking #${bookingId}:`, error.message);
+  }
+};
+
+module.exports = { sendBookingConfirmation, sendCheckInReminder, getTransporter };

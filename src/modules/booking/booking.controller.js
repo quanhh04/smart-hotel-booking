@@ -40,4 +40,20 @@ const cancelBooking = asyncHandler(async (req, res) => {
   return res.status(200).json(booking);
 });
 
-module.exports = { createBooking, getBookings, cancelBooking };
+const getBookingDetail = asyncHandler(async (req, res) => {
+  const bookingId = Number(req.params.id);
+  const booking = await bookingService.getBookingDetail(bookingId, req.user.userId);
+  return res.status(200).json(booking);
+});
+
+const getAllBookings = asyncHandler(async (req, res) => {
+  const { status, page = 1, limit = 10 } = req.query;
+  const result = await bookingService.getAllBookings({
+    status,
+    page: Number(page),
+    limit: Number(limit),
+  });
+  return res.status(200).json({ ...result, page: Number(page), limit: Number(limit) });
+});
+
+module.exports = { createBooking, getBookings, cancelBooking, getBookingDetail, getAllBookings };

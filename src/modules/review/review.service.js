@@ -37,7 +37,6 @@ const createReview = async ({ userId, bookingId, rating, comment }) => {
 };
 
 const getHotelReviews = async (hotelId, page, limit) => {
-  console.log("2");
   return reviewModel.getReviewsByHotelId({ hotelId, page, limit });
 };
 

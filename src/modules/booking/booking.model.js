@@ -123,4 +123,66 @@ const cancelBooking = async ({ bookingId, userId }) => {
   return result.rows[0];
 };
 
-module.exports = { createBooking, getBookingsByUserId, cancelBooking };
+const getBookingById = async (bookingId) => {
+  const result = await pool.query(
+    `
+      SELECT
+        b.id, b.room_type_id, b.user_id, b.check_in, b.check_out,
+        b.status, b.payment_method, b.reminder_sent, b.created_at,
+        r.name AS room_name, r.price_per_night, r.max_guests, r.description AS room_description,
+        h.id AS hotel_id, h.name AS hotel_name, h.address AS hotel_address,
+        p.id AS payment_id, p.amount AS payment_amount, p.status AS payment_status, p.created_at AS payment_date
+      FROM booking.bookings b
+      LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
+      LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      LEFT JOIN booking.payments p ON p.booking_id = b.id
+      WHERE b.id = $1
+    `,
+    [bookingId],
+  );
+
+  return result.rows[0] || null;
+};
+
+const getAllBookings = async ({ status, page = 1, limit = 10 }) => {
+  const conditions = [];
+  const params = [];
+  let paramIndex = 1;
+
+  if (status) {
+    conditions.push(`b.status = $${paramIndex++}`);
+    params.push(status);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  params.push(limit);
+  const limitParam = paramIndex++;
+  params.push((page - 1) * limit);
+  const offsetParam = paramIndex++;
+
+  const result = await pool.query(
+    `
+      SELECT
+        b.id, b.room_type_id, b.user_id, b.check_in, b.check_out,
+        b.status, b.payment_method, b.created_at,
+        r.name AS room_name, r.price_per_night,
+        h.name AS hotel_name,
+        COUNT(*) OVER() AS total
+      FROM booking.bookings b
+      LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
+      LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      ${whereClause}
+      ORDER BY b.created_at DESC
+      LIMIT $${limitParam} OFFSET $${offsetParam}
+    `,
+    params,
+  );
+
+  const total = result.rows.length > 0 ? parseInt(result.rows[0].total, 10) : 0;
+  const bookings = result.rows.map(({ total: _, ...row }) => row);
+
+  return { bookings, total };
+};
+
+module.exports = { createBooking, getBookingsByUserId, cancelBooking, getBookingById, getAllBookings };

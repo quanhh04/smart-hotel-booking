@@ -36,4 +36,37 @@ const cancelBooking = {
   }),
 };
 
-module.exports = { createBooking, cancelBooking };
+const getBookingDetail = {
+  params: Joi.object({
+    id: Joi.number().integer().positive().required().messages({
+      "number.base": "ID đặt phòng phải là số",
+      "number.integer": "ID đặt phòng phải là số nguyên",
+      "number.positive": "ID đặt phòng phải là số dương",
+      "any.required": "ID đặt phòng là bắt buộc",
+    }),
+  }),
+};
+
+const getAllBookings = {
+  query: Joi.object({
+    status: Joi.string()
+      .valid("PENDING", "CONFIRMED", "PAID", "CANCELLED", "REFUNDED")
+      .optional()
+      .messages({
+        "any.only": "Trạng thái không hợp lệ",
+      }),
+    page: Joi.number().integer().min(1).default(1).messages({
+      "number.base": "Trang phải là số",
+      "number.integer": "Trang phải là số nguyên",
+      "number.min": "Trang phải lớn hơn hoặc bằng 1",
+    }),
+    limit: Joi.number().integer().min(1).max(100).default(10).messages({
+      "number.base": "Giới hạn phải là số",
+      "number.integer": "Giới hạn phải là số nguyên",
+      "number.min": "Giới hạn phải lớn hơn hoặc bằng 1",
+      "number.max": "Giới hạn không được vượt quá 100",
+    }),
+  }),
+};
+
+module.exports = { createBooking, cancelBooking, getBookingDetail, getAllBookings };

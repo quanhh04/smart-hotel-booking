@@ -43,7 +43,7 @@ const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities, checkIn, chec
   };
 };
 
-const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut }) => {
+const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut, page = 1, limit = 10 }) => {
   const filterAmenities = amenities ? amenities.split(',').map((item) => item.trim()).filter(Boolean) : [];
   const { filters, values, joinAmenities, amenitiesCount, hasDateFilter } = buildRoomFilters({
     minPrice,
@@ -87,6 +87,12 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkO
 
   const whereClause = filters.length ? 'WHERE ' + filters.join(' AND ') : '';
 
+  const offset = (page - 1) * limit;
+  values.push(limit);
+  const limitParam = '$' + values.length;
+  values.push(offset);
+  const offsetParam = '$' + values.length;
+
   const query = `
     SELECT
       r.id,
@@ -97,7 +103,8 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkO
       r.description,
       r.total_quantity,
       r.created_at,
-      COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities
+      COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities,
+      COUNT(*) OVER() AS total_count
       ${availableSelect}
     FROM hotel.room_types r
     ${amenityJoin}
@@ -106,10 +113,13 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkO
     GROUP BY r.id
     ${havingClause}
     ORDER BY r.created_at DESC
+    LIMIT ${limitParam} OFFSET ${offsetParam}
   `;
 
   const result = await pool.query(query, values);
-  return result.rows;
+  const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
+  const rooms = result.rows.map(({ total_count, ...room }) => room);
+  return { rooms, total };
 };
 
 const createRoom = async ({
@@ -202,8 +212,147 @@ const getRoomById = async (roomId) => {
   return result.rows[0] || null;
 };
 
+const updateRoom = async (roomId, { name, price_per_night, max_guests, description, amenities }) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const fields = [];
+    const values = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      fields.push('name = $' + paramIndex++);
+      values.push(name);
+    }
+    if (price_per_night !== undefined) {
+      fields.push('price_per_night = $' + paramIndex++);
+      values.push(price_per_night);
+    }
+    if (max_guests !== undefined) {
+      fields.push('max_guests = $' + paramIndex++);
+      values.push(max_guests);
+    }
+    if (description !== undefined) {
+      fields.push('description = $' + paramIndex++);
+      values.push(description);
+    }
+
+    if (fields.length > 0) {
+      values.push(roomId);
+      await client.query(
+        'UPDATE hotel.room_types SET ' + fields.join(', ') + ' WHERE id = $' + paramIndex,
+        values,
+      );
+    }
+
+    if (amenities !== undefined) {
+      await client.query(
+        'DELETE FROM hotel.room_amenities WHERE room_type_id = $1',
+        [roomId],
+      );
+
+      const amenityNames = amenities.map((item) => item.trim()).filter(Boolean);
+
+      for (const amenity of amenityNames) {
+        const amenityResult = await client.query(
+          `
+            INSERT INTO hotel.amenities (name)
+            VALUES ($1)
+            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+            RETURNING id
+          `,
+          [amenity],
+        );
+
+        await client.query(
+          `
+            INSERT INTO hotel.room_amenities (room_type_id, amenity_id)
+            VALUES ($1, $2)
+            ON CONFLICT DO NOTHING
+          `,
+          [roomId, amenityResult.rows[0].id],
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+
+    const result = await pool.query(
+      `
+        SELECT
+          r.id,
+          r.hotel_id,
+          r.name,
+          r.price_per_night,
+          r.max_guests,
+          r.description,
+          r.total_quantity,
+          r.created_at,
+          COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities
+        FROM hotel.room_types r
+        LEFT JOIN hotel.room_amenities ra ON ra.room_type_id = r.id
+        LEFT JOIN hotel.amenities a ON a.id = ra.amenity_id
+        WHERE r.id = $1
+        GROUP BY r.id
+      `,
+      [roomId],
+    );
+
+    return result.rows[0] || null;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+const hasActiveBookingsForRoom = async (roomId) => {
+  const result = await pool.query(
+    `
+      SELECT COUNT(*)::int AS count
+      FROM booking.bookings
+      WHERE room_type_id = $1
+        AND status IN ('PENDING', 'CONFIRMED', 'PAID')
+    `,
+    [roomId],
+  );
+
+  return result.rows[0].count > 0;
+};
+
+const deleteRoom = async (roomId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    await client.query(
+      'DELETE FROM hotel.room_amenities WHERE room_type_id = $1',
+      [roomId],
+    );
+
+    await client.query(
+      'DELETE FROM hotel.room_types WHERE id = $1',
+      [roomId],
+    );
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   getRooms,
   createRoom,
   getRoomById,
+  updateRoom,
+  hasActiveBookingsForRoom,
+  deleteRoom,
 };

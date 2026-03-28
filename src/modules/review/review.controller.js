@@ -13,7 +13,6 @@ const createReview = asyncHandler(async (req, res) => {
 const getHotelReviews = asyncHandler(async (req, res) => {
   const { hotelId } = req.params;
   const { page = 1, limit = 10 } = req.query;
-  console.log("1");
 
   const { reviews, total } = await reviewService.getHotelReviews(hotelId, page, limit);
 

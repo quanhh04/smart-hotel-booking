@@ -111,4 +111,135 @@ const getPaymentsByUserId = async (userId) => {
   return result.rows;
 };
 
-module.exports = { processPayment, getPaymentsByUserId };
+/**
+ * Hoàn tiền cho booking đã thanh toán.
+ * Transaction: INSERT payment REFUNDED + UPDATE booking status → REFUNDED.
+ */
+const processRefund = async (bookingId) => {
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const bookingResult = await client.query(
+      `
+        SELECT b.id, b.status, p.amount
+        FROM booking.bookings b
+        JOIN booking.payments p ON p.booking_id = b.id AND p.status = 'SUCCESS'
+        WHERE b.id = $1
+        FOR UPDATE OF b
+      `,
+      [bookingId],
+    );
+
+    const booking = bookingResult.rows[0];
+    if (!booking) {
+      throw createError('Không tìm thấy đặt phòng hoặc chưa có thanh toán', 404);
+    }
+
+    if (booking.status !== 'PAID') {
+      throw createError('Booking chưa đủ điều kiện hoàn tiền', 400);
+    }
+
+    const paymentResult = await client.query(
+      `
+        INSERT INTO booking.payments (booking_id, amount, status)
+        VALUES ($1, $2, 'REFUNDED')
+        RETURNING id, booking_id, amount, status, created_at
+      `,
+      [bookingId, booking.amount],
+    );
+
+    const updatedBooking = await client.query(
+      `
+        UPDATE booking.bookings
+        SET status = 'REFUNDED'
+        WHERE id = $1
+        RETURNING id, user_id, room_type_id, check_in, check_out, status, payment_method, created_at
+      `,
+      [bookingId],
+    );
+
+    await client.query('COMMIT');
+
+    return {
+      payment: paymentResult.rows[0],
+      booking: updatedBooking.rows[0],
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+/**
+ * Lấy danh sách tất cả giao dịch thanh toán (admin).
+ * Hỗ trợ filter theo status, phân trang.
+ */
+const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
+  const conditions = [];
+  const params = [];
+  let paramIndex = 1;
+
+  if (status) {
+    conditions.push(`p.status = $${paramIndex++}`);
+    params.push(status);
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const offset = (page - 1) * limit;
+
+  params.push(limit, offset);
+
+  const result = await pool.query(
+    `
+      SELECT
+        p.id, p.booking_id, p.amount, p.status, p.created_at,
+        b.user_id, b.check_in, b.check_out, b.payment_method,
+        r.name AS room_name, h.name AS hotel_name,
+        COUNT(*) OVER() AS total
+      FROM booking.payments p
+      JOIN booking.bookings b ON b.id = p.booking_id
+      LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
+      LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      ${whereClause}
+      ORDER BY p.created_at DESC
+      LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+    `,
+    params,
+  );
+
+  const total = result.rows.length > 0 ? parseInt(result.rows[0].total) : 0;
+  const payments = result.rows.map(({ total: _, ...row }) => row);
+
+  return { payments, total, page, limit };
+};
+
+/**
+ * Lấy chi tiết một giao dịch thanh toán theo ID.
+ * JOIN bookings, room_types, hotels.
+ */
+const getPaymentById = async (paymentId) => {
+  const result = await pool.query(
+    `
+      SELECT
+        p.id, p.booking_id, p.amount, p.status, p.created_at,
+        b.user_id, b.room_type_id, b.check_in, b.check_out,
+        b.status AS booking_status, b.payment_method,
+        r.name AS room_name, r.price_per_night, r.max_guests,
+        h.id AS hotel_id, h.name AS hotel_name, h.address AS hotel_address
+      FROM booking.payments p
+      JOIN booking.bookings b ON b.id = p.booking_id
+      LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
+      LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      WHERE p.id = $1
+    `,
+    [paymentId],
+  );
+
+  return result.rows[0] || null;
+};
+
+module.exports = { processPayment, getPaymentsByUserId, processRefund, getAllPayments, getPaymentById };

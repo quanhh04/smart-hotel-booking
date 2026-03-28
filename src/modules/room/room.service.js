@@ -2,8 +2,8 @@ const pool = require('../../config/db');
 const roomModel = require('./room.model');
 const { createError } = require('../../common/helpers/error');
 
-const listRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut }) =>
-  roomModel.getRooms({ minPrice, maxPrice, guests, amenities, checkIn, checkOut });
+const listRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut, page, limit }) =>
+  roomModel.getRooms({ minPrice, maxPrice, guests, amenities, checkIn, checkOut, page, limit });
 
 const addRoom = async (roomData) => {
   const hotelResult = await pool.query(
@@ -20,4 +20,24 @@ const addRoom = async (roomData) => {
 
 const getRoomDetail = async (roomId) => roomModel.getRoomById(roomId);
 
-module.exports = { listRooms, addRoom, getRoomDetail };
+const updateRoom = async (roomId, data) => {
+  const room = await roomModel.getRoomById(roomId);
+  if (!room) {
+    throw createError('Không tìm thấy loại phòng', 404);
+  }
+  return roomModel.updateRoom(roomId, data);
+};
+
+const removeRoom = async (roomId) => {
+  const room = await roomModel.getRoomById(roomId);
+  if (!room) {
+    throw createError('Không tìm thấy loại phòng', 404);
+  }
+  const hasActive = await roomModel.hasActiveBookingsForRoom(roomId);
+  if (hasActive) {
+    throw createError('Không thể xóa loại phòng có booking đang hoạt động', 409);
+  }
+  await roomModel.deleteRoom(roomId);
+};
+
+module.exports = { listRooms, addRoom, getRoomDetail, updateRoom, removeRoom };

@@ -40,7 +40,9 @@ const createBulkNotifications = async (notifications) => {
 };
 
 const getByUserId = async (userId, page, limit) => {
-  const offset = (page - 1) * limit;
+  const currentPage = Number(page) || 1;
+  const currentLimit = Number(limit) || 10;
+  const offset = (currentPage - 1) * currentLimit;
 
   const result = await pool.query(
     `
@@ -51,7 +53,7 @@ const getByUserId = async (userId, page, limit) => {
       ORDER BY created_at DESC
       LIMIT $2 OFFSET $3
     `,
-    [userId, limit, offset],
+    [userId, currentLimit, offset],
   );
 
   return {
@@ -125,6 +127,34 @@ const deleteById = async (notificationId) => {
   return result.rowCount;
 };
 
+const getBookingsForReminder = async () => {
+  const result = await pool.query(
+    `
+      SELECT
+        b.id AS booking_id, b.user_id, b.check_in, b.check_out, b.status,
+        u.email,
+        r.name AS room_name,
+        h.name AS hotel_name
+      FROM booking.bookings b
+      JOIN auth.users u ON u.id = b.user_id
+      JOIN hotel.room_types r ON r.id = b.room_type_id
+      JOIN hotel.hotels h ON h.id = r.hotel_id
+      WHERE b.check_in = CURRENT_DATE + INTERVAL '1 day'
+        AND b.status IN ('PAID', 'CONFIRMED')
+        AND b.reminder_sent = FALSE
+    `,
+  );
+
+  return result.rows;
+};
+
+const markReminderSent = async (bookingId) => {
+  await pool.query(
+    `UPDATE booking.bookings SET reminder_sent = TRUE WHERE id = $1`,
+    [bookingId],
+  );
+};
+
 module.exports = {
   createNotification,
   createBulkNotifications,
@@ -134,4 +164,6 @@ module.exports = {
   markAsRead,
   markAllAsRead,
   deleteById,
+  getBookingsForReminder,
+  markReminderSent,
 };

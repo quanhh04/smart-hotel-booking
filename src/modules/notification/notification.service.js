@@ -159,6 +159,42 @@ const notifyReviewPosted = async (review) => {
   }
 };
 
+const sendCheckInReminders = async () => {
+  try {
+    const bookings = await notificationModel.getBookingsForReminder();
+
+    for (const booking of bookings) {
+      await notificationModel.createNotification({
+        userId: booking.user_id,
+        type: 'CHECK_IN_REMINDER',
+        title: 'Nhắc nhở check-in',
+        message: `Ngày mai là ngày nhận phòng ${booking.room_name} tại ${booking.hotel_name}. Vui lòng chuẩn bị!`,
+        metadata: {
+          booking_id: booking.booking_id,
+          hotel_name: booking.hotel_name,
+          room_name: booking.room_name,
+          check_in: booking.check_in,
+        },
+      });
+
+      emailService.sendCheckInReminder({
+        to: booking.email,
+        bookingId: booking.booking_id,
+        hotelName: booking.hotel_name,
+        roomName: booking.room_name,
+        checkIn: booking.check_in,
+      });
+
+      await notificationModel.markReminderSent(booking.booking_id);
+    }
+
+    return bookings.length;
+  } catch (error) {
+    console.error('Failed to send check-in reminders:', error.message);
+    return 0;
+  }
+};
+
 module.exports = {
   getUserNotifications,
   markAsRead,
@@ -169,4 +205,5 @@ module.exports = {
   notifyBookingCancelled,
   notifyPaymentSuccess,
   notifyReviewPosted,
+  sendCheckInReminders,
 };

@@ -13,6 +13,7 @@ const roomRoutes = require('./modules/room/room.route');
 const inventoryRoutes = require('./modules/inventory/inventory.route');
 const reviewRoutes = require('./modules/review/review.route');
 const notificationRoutes = require('./modules/notification/notification.route');
+const adminRoutes = require('./modules/admin/admin.route');
 
 const app = express();
 
@@ -34,5 +35,6 @@ app.use('/rooms', roomRoutes);
 app.use('/', inventoryRoutes);
 app.use('/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/admin', adminRoutes);
 
 module.exports = app;

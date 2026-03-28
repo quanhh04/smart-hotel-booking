@@ -12,4 +12,22 @@ const getPayments = asyncHandler(async (req, res) => {
   return res.status(200).json(payments);
 });
 
-module.exports = { payBooking, getPayments };
+const refund = asyncHandler(async (req, res) => {
+  const { booking_id: bookingId } = req.body;
+  const result = await paymentService.refundPayment(bookingId);
+  return res.status(200).json(result);
+});
+
+const getAllPayments = asyncHandler(async (req, res) => {
+  const { status, page, limit } = req.query;
+  const result = await paymentService.getAllPayments({ status, page, limit });
+  return res.status(200).json(result);
+});
+
+const getPaymentDetail = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const payment = await paymentService.getPaymentDetail(parseInt(id));
+  return res.status(200).json(payment);
+});
+
+module.exports = { payBooking, getPayments, refund, getAllPayments, getPaymentDetail };

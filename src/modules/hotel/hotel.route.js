@@ -7,8 +7,13 @@ const hotelSchemas = require('./hotel.schema');
 
 const router = Router();
 
-router.get('/', hotelController.getHotels);
+router.get('/', validate(hotelSchemas.getHotels), hotelController.getHotels);
 router.post('/', authMiddleware, requireAdmin, validate(hotelSchemas.createHotel), hotelController.createHotel);
+router.get('/:id/rooms', validate(hotelSchemas.getHotelRooms), hotelController.getHotelRooms);
 router.get('/:id', validate(hotelSchemas.getHotelDetail), hotelController.getHotelDetail);
+router.put('/:id', authMiddleware, requireAdmin, validate(hotelSchemas.updateHotel), hotelController.updateHotel);
+router.delete('/:id', authMiddleware, requireAdmin, validate(hotelSchemas.deleteHotel), hotelController.deleteHotel);
+router.post('/:id/images', authMiddleware, requireAdmin, validate(hotelSchemas.addImage), hotelController.addImage);
+router.delete('/:id/images/:imageId', authMiddleware, requireAdmin, validate(hotelSchemas.deleteImage), hotelController.deleteImage);
 
 module.exports = router;

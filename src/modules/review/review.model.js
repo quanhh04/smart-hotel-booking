@@ -175,8 +175,9 @@ const deleteReview = async ({ reviewId, hotelId }) => {
 };
 
 const getReviewsByHotelId = async ({ hotelId, page, limit }) => {
-  const offset = (page - 1) * limit;
-  console.log("3");
+  const currentPage = Number(page) || 1;
+  const currentLimit = Number(limit) || 10;
+  const offset = (currentPage - 1) * currentLimit;
 
   const result = await pool.query(
     `
@@ -188,10 +189,9 @@ const getReviewsByHotelId = async ({ hotelId, page, limit }) => {
       ORDER BY r.created_at DESC
       LIMIT $2 OFFSET $3
     `,
-    [hotelId, limit, offset],
+    [hotelId, currentLimit, offset],
   );
 
-  console.log("4");
   return {
     reviews: result.rows,
     total: result.rows[0]?.total || 0,

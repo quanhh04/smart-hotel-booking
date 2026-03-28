@@ -26,7 +26,48 @@ const createUser = async ({ email, password, role }) => {
   return result.rows[0];
 };
 
+const updateUserProfile = async (userId, { displayName, phone }) => {
+  const result = await pool.query(
+    `
+      UPDATE auth.users
+      SET display_name = $1, phone = $2
+      WHERE id = $3
+      RETURNING id, email, role, display_name, phone, created_at
+    `,
+    [displayName, phone, userId],
+  );
+
+  return result.rows[0] || null;
+};
+
+const updateUserPassword = async (userId, hashedPassword) => {
+  await pool.query(
+    `
+      UPDATE auth.users
+      SET password = $1
+      WHERE id = $2
+    `,
+    [hashedPassword, userId],
+  );
+};
+
+const findUserById = async (userId) => {
+  const result = await pool.query(
+    `
+      SELECT id, email, password, role, display_name, phone, created_at
+      FROM auth.users
+      WHERE id = $1
+    `,
+    [userId],
+  );
+
+  return result.rows[0] || null;
+};
+
 module.exports = {
   findUserByEmail,
   createUser,
+  updateUserProfile,
+  updateUserPassword,
+  findUserById,
 };
