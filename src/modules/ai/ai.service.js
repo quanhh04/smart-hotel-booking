@@ -1,5 +1,6 @@
 const createLogger = require('../../common/helpers/logger.js');
 const model = require('./ai.model.js');
+const llm = require('./llm.service.js');
 
 const log = createLogger('ai.service');
 
@@ -651,8 +652,41 @@ async function chat(message, sessionId, userId) {
     }
   }
 
-  // 6. Build Vietnamese response
-  const reply = buildResponse(intent, results, mergedSlots);
+  // 6. Build response — try LLM first, fallback to rule-based
+  const conversationHistory = existingCtx ? existingCtx.history : [];
+  let reply = await llm.generateResponse(message, results, mergedSlots, conversationHistory);
+  const usedLlm = !!reply;
+
+  // 6b. Check if LLM wants to perform an action (e.g. book a room)
+  let bookingResult = null;
+  if (reply) {
+    const action = llm.parseAction(reply);
+    if (action && action.action === 'book') {
+      if (!userId) {
+        reply = 'Bạn cần đăng nhập để đặt phòng nhé! Bấm nút "Đăng nhập" ở góc trên phải.';
+      } else {
+        try {
+          const bookingService = require('../booking/booking.service');
+          const booking = await bookingService.createBooking({
+            userId,
+            roomTypeId: action.params.room_type_id,
+            checkIn: action.params.check_in,
+            checkOut: action.params.check_out,
+            paymentMethod: action.params.payment_method || 'pay_at_hotel',
+          });
+          bookingResult = { id: booking.id, status: booking.status };
+          reply = action.cleanReply || `Đặt phòng thành công! Mã đơn: ${booking.id}. Bạn có thể xem chi tiết trong mục "Đặt phòng của tôi".`;
+        } catch (err) {
+          log.error('chat: booking failed', { error: err.message });
+          reply = `Không thể đặt phòng: ${err.message}. Bạn thử lại hoặc đặt trực tiếp trên trang chi tiết khách sạn nhé!`;
+        }
+      }
+    }
+  }
+
+  if (!reply) {
+    reply = buildResponse(intent, results, mergedSlots);
+  }
 
   // 7. Log analytics (fire-and-forget — never block response)
   Promise.resolve().then(async () => {
@@ -679,9 +713,11 @@ async function chat(message, sessionId, userId) {
     context: {
       session_id: sessionId || null,
       message_count: messageCount,
+      llm: usedLlm,
     },
     reply,
     results: results.length > 0 ? results : undefined,
+    booking: bookingResult || undefined,
   };
 }
 
@@ -1011,6 +1047,7 @@ async function getStatus() {
   return {
     status,
     subsystems,
+    llm_enabled: llm.isEnabled(),
     active_sessions: getActiveSessionCount(),
     timestamp: new Date().toISOString(),
   };
