@@ -1,18 +1,17 @@
 const { Router } = require('express');
-const aiController = require('./ai.controller');
-const chatbotRoutes = require('./chatbot.route');
-const recommendationRoutes = require('./recommendation.route');
-const chatAdvancedRoutes = require('./chatAdvanced.route');
-const recommendationAdvancedRoutes = require('./recommendationAdvanced.route');
-const analyticsRoutes = require('./analytics.route');
+const validate = require('../../common/middleware/validate');
+const authMiddleware = require('../../common/middleware/auth.middleware');
+const controller = require('./ai.controller');
+const schema = require('./ai.schema');
 
 const router = Router();
 
-router.get('/status', aiController.getAiStatus);
-router.use('/', chatbotRoutes);
-router.use('/', recommendationRoutes);
-router.use('/', chatAdvancedRoutes);
-router.use('/', recommendationAdvancedRoutes);
-router.use('/', analyticsRoutes);
+router.post('/chat', validate(schema.chat), controller.chat);
+router.get('/recommendations', validate(schema.recommendations), controller.getRecommendations);
+router.get('/trending', validate(schema.trending), controller.getTrending);
+router.get('/history-based', authMiddleware, validate(schema.historyBased), controller.getHistoryBased);
+router.post('/track/click', validate(schema.trackClick), controller.trackClick);
+router.get('/stats', validate(schema.stats), controller.getStats);
+router.get('/status', controller.getStatus);
 
 module.exports = router;
