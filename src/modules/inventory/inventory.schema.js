@@ -1,45 +1,22 @@
-const Joi = require("joi");
+const { isRequired, isPositiveInt, isNumber, isISODate, minValue } = require('../../common/helpers/validators');
 
 const updateInventory = {
-  params: Joi.object({
-    id: Joi.number().integer().positive().required().messages({
-      "number.base": "ID loại phòng phải là số",
-      "number.integer": "ID loại phòng phải là số nguyên",
-      "number.positive": "ID loại phòng phải là số dương",
-      "any.required": "ID loại phòng là bắt buộc",
-    }),
-  }),
-  body: Joi.object({
-    total_quantity: Joi.number().integer().min(0).required().messages({
-      "number.base": "Tổng số lượng phải là số",
-      "number.integer": "Tổng số lượng phải là số nguyên",
-      "number.min": "Tổng số lượng không được nhỏ hơn {#limit}",
-      "any.required": "Tổng số lượng là bắt buộc",
-    }),
-  }),
+  params: {
+    id: [isRequired('ID loại phòng'), isPositiveInt('ID loại phòng')],
+  },
+  body: {
+    total_quantity: [isRequired('Tổng số lượng'), isNumber('Tổng số lượng'), minValue('Tổng số lượng', 0)],
+  },
 };
 
 const getHotelInventory = {
-  params: Joi.object({
-    id: Joi.number().integer().positive().required().messages({
-      "number.base": "ID khách sạn phải là số",
-      "number.integer": "ID khách sạn phải là số nguyên",
-      "number.positive": "ID khách sạn phải là số dương",
-      "any.required": "ID khách sạn là bắt buộc",
-    }),
-  }),
-  query: Joi.object({
-    check_in: Joi.date().iso().messages({
-      "date.base": "Ngày nhận phòng không hợp lệ",
-      "date.format": "Ngày nhận phòng phải đúng định dạng ISO 8601",
-    }),
-    check_out: Joi.date().iso().messages({
-      "date.base": "Ngày trả phòng không hợp lệ",
-      "date.format": "Ngày trả phòng phải đúng định dạng ISO 8601",
-    }),
-  }).with("check_out", "check_in").messages({
-    "object.with": "Khi có ngày trả phòng thì phải có ngày nhận phòng",
-  }),
+  params: {
+    id: [isRequired('ID khách sạn'), isPositiveInt('ID khách sạn')],
+  },
+  query: {
+    check_in: [isISODate('Ngày nhận phòng')],
+    check_out: [isISODate('Ngày trả phòng')],
+  },
 };
 
 module.exports = { updateInventory, getHotelInventory };

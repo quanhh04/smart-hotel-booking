@@ -1,29 +1,30 @@
+/**
+ * Validate middleware for manual validation rules.
+ *
+ * Schema format:
+ * {
+ *   params: { fieldName: [rule1, rule2, ...] },
+ *   query:  { fieldName: [rule1, rule2, ...] },
+ *   body:   { fieldName: [rule1, rule2, ...] },
+ * }
+ *
+ * Validates in order: params → query → body.
+ * Stops at the first error encountered.
+ */
 const validate = (schema) => (req, res, next) => {
-  const errors = [];
+  for (const key of ['params', 'query', 'body']) {
+    const fields = schema[key];
+    if (!fields) continue;
 
-  for (const key of ["body", "params", "query"]) {
-    if (!schema[key]) continue;
-
-    const { error, value } = schema[key].validate(req[key], {
-      abortEarly: false,
-    });
-
-    if (error) {
-      errors.push(...error.details);
-    } else {
-      req[key] = value;
+    for (const [field, rules] of Object.entries(fields)) {
+      const value = req[key][field];
+      for (const rule of rules) {
+        const error = rule(value);
+        if (error) {
+          return res.status(400).json({ message: error });
+        }
+      }
     }
-  }
-
-  if (errors.length > 0) {
-    return res.status(400).json({
-      // message: "Dữ liệu không hợp lệ",
-      // details: errors.map((e) => ({
-      //   field: e.path[0],
-      //   message: e.message,
-      // })),
-      message: errors[0].message
-    });
   }
 
   return next();

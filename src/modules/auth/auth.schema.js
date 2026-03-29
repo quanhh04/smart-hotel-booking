@@ -1,76 +1,37 @@
-const Joi = require("joi");
+const { isRequired, isString, isEmail, minLength, maxLength } = require('../../common/helpers/validators');
 
 const register = {
-  body: Joi.object({
-    email: Joi.string().email().required().messages({
-      "string.base": "Email phải là chuỗi ký tự",
-      "string.email": "Email không đúng định dạng",
-      "string.empty": "Email không được để trống",
-      "any.required": "Email là bắt buộc",
-    }),
-    password: Joi.string().min(6).required().messages({
-      "string.base": "Mật khẩu phải là chuỗi ký tự",
-      "string.min": "Mật khẩu phải có ít nhất {#limit} ký tự",
-      "string.empty": "Mật khẩu không được để trống",
-      "any.required": "Mật khẩu là bắt buộc",
-    }),
-  }),
+  body: {
+    email: [isRequired('Email'), isString('Email'), isEmail('Email')],
+    password: [isRequired('Mật khẩu'), isString('Mật khẩu'), minLength('Mật khẩu', 6)],
+  },
 };
 
 const login = {
-  body: Joi.object({
-    email: Joi.string().email().required().messages({
-      "string.base": "Email phải là chuỗi ký tự",
-      "string.email": "Email không đúng định dạng",
-      "string.empty": "Email không được để trống",
-      "any.required": "Email là bắt buộc",
-    }),
-    password: Joi.string().required().messages({
-      "string.base": "Mật khẩu phải là chuỗi ký tự",
-      "string.empty": "Mật khẩu không được để trống",
-      "any.required": "Mật khẩu là bắt buộc",
-    }),
-  }),
+  body: {
+    email: [isRequired('Email'), isString('Email'), isEmail('Email')],
+    password: [isRequired('Mật khẩu'), isString('Mật khẩu')],
+  },
 };
 
 const updateProfile = {
-  body: Joi.object({
-    display_name: Joi.string().max(100).messages({
-      "string.base": "Tên hiển thị phải là chuỗi ký tự",
-      "string.max": "Tên hiển thị không được vượt quá {#limit} ký tự",
-    }),
-    phone: Joi.string().max(20).messages({
-      "string.base": "Số điện thoại phải là chuỗi ký tự",
-      "string.max": "Số điện thoại không được vượt quá {#limit} ký tự",
-    }),
-  }),
+  body: {
+    display_name: [isString('Tên hiển thị'), maxLength('Tên hiển thị', 100)],
+    phone: [isString('Số điện thoại'), maxLength('Số điện thoại', 20)],
+  },
 };
 
 const changePassword = {
-  body: Joi.object({
-    old_password: Joi.string().required().messages({
-      "string.base": "Mật khẩu cũ phải là chuỗi ký tự",
-      "string.empty": "Mật khẩu cũ không được để trống",
-      "any.required": "Mật khẩu cũ là bắt buộc",
-    }),
-    new_password: Joi.string().min(6).required().messages({
-      "string.base": "Mật khẩu mới phải là chuỗi ký tự",
-      "string.min": "Mật khẩu mới phải có ít nhất {#limit} ký tự",
-      "string.empty": "Mật khẩu mới không được để trống",
-      "any.required": "Mật khẩu mới là bắt buộc",
-    }),
-  }),
+  body: {
+    old_password: [isRequired('Mật khẩu cũ'), isString('Mật khẩu cũ')],
+    new_password: [isRequired('Mật khẩu mới'), isString('Mật khẩu mới'), minLength('Mật khẩu mới', 6)],
+  },
 };
 
 const forgotPassword = {
-  body: Joi.object({
-    email: Joi.string().email().required().messages({
-      "string.base": "Email phải là chuỗi ký tự",
-      "string.email": "Email không đúng định dạng",
-      "string.empty": "Email không được để trống",
-      "any.required": "Email là bắt buộc",
-    }),
-  }),
+  body: {
+    email: [isRequired('Email'), isString('Email'), isEmail('Email')],
+  },
 };
 
 module.exports = {
