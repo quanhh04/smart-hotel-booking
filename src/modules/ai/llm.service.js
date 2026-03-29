@@ -13,6 +13,13 @@ function isEnabled() {
   return !!GEMINI_API_KEY;
 }
 
+// Startup log
+if (GEMINI_API_KEY) {
+  log.info('LLM enabled', { model: GEMINI_MODEL, keyPrefix: GEMINI_API_KEY.substring(0, 8) + '...' });
+} else {
+  log.warn('LLM disabled: GEMINI_API_KEY not set in .env — chatbot will use rule-based fallback');
+}
+
 function buildSystemPrompt(rooms, slots, conversationHistory) {
   const roomContext = rooms.length > 0
     ? `\n\nKết quả tìm kiếm phòng (${rooms.length} phòng):\n` +
@@ -54,8 +61,11 @@ ${historyText ? `\nLịch sử hội thoại:\n${historyText}` : ''}`;
 
 async function generateResponse(userMessage, rooms, slots, conversationHistory) {
   if (!isEnabled()) {
-    return null; // fallback to rule-based
+    log.warn('LLM skipped: GEMINI_API_KEY not set');
+    return null;
   }
+
+  log.info('LLM request starting', { model: GEMINI_MODEL, roomCount: rooms.length, messageLength: userMessage.length });
 
   try {
     const systemPrompt = buildSystemPrompt(rooms, slots, conversationHistory);
@@ -71,48 +81,59 @@ async function generateResponse(userMessage, rooms, slots, conversationHistory) 
       },
     };
 
+    const startTime = Date.now();
     const res = await fetch(GEMINI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    const elapsed = Date.now() - startTime;
 
     // Retry once on rate limit (429)
     if (res.status === 429) {
-      log.warn('LLM rate limited, retrying in 2s...');
+      const retryBody = await res.text();
+      log.warn('LLM rate limited (429)', { elapsed, retryAfter: retryBody.match(/retry in ([\d.]+s)/)?.[1] || '2s' });
       await new Promise(r => setTimeout(r, 2000));
+
+      const retryStart = Date.now();
       const retry = await fetch(GEMINI_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      const retryElapsed = Date.now() - retryStart;
+
       if (!retry.ok) {
-        log.error('LLM retry also failed', { status: retry.status });
+        const retryErrText = await retry.text();
+        log.error('LLM retry failed', { status: retry.status, elapsed: retryElapsed, body: retryErrText.substring(0, 200) });
         return null;
       }
       const retryData = await retry.json();
       const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      log.info('LLM retry succeeded', { elapsed: retryElapsed, length: retryText?.length || 0 });
       return retryText ? retryText.trim() : null;
     }
 
     if (!res.ok) {
       const errText = await res.text();
-      log.error('LLM API error', { status: res.status, body: errText });
+      log.error('LLM API error', { status: res.status, elapsed, body: errText.substring(0, 300) });
       return null;
     }
 
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const finishReason = data?.candidates?.[0]?.finishReason;
+    const tokenCount = data?.usageMetadata?.totalTokenCount;
 
     if (!text) {
-      log.warn('LLM returned empty response');
+      log.warn('LLM returned empty response', { finishReason, elapsed, candidates: data?.candidates?.length || 0 });
       return null;
     }
 
-    log.info('LLM response generated', { length: text.length });
+    log.info('LLM response OK', { elapsed, length: text.length, finishReason, tokens: tokenCount || 'N/A' });
     return text.trim();
   } catch (err) {
-    log.error('LLM call failed', { error: err.message });
+    log.error('LLM call exception', { error: err.message, stack: err.stack?.split('\n')[1]?.trim() });
     return null;
   }
 }
