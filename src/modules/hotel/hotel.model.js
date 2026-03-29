@@ -24,7 +24,7 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
 
   if (keyword !== undefined) {
     values.push('%' + keyword + '%');
-    filters.push('(h.name ILIKE $' + values.length + ' OR h.address ILIKE $' + values.length + ')');
+    filters.push('(unaccent(h.name) ILIKE unaccent($' + values.length + ') OR unaccent(h.address) ILIKE unaccent($' + values.length + '))');
   }
 
   if (minPrice !== undefined) {
@@ -69,7 +69,7 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
       h.discount_percent,
       h.created_at,
       COALESCE(
-        (SELECT jsonb_agg(img.url) FROM hotel.images img WHERE img.hotel_id = h.id),
+        (SELECT img.url::jsonb FROM hotel.images img WHERE img.hotel_id = h.id LIMIT 1),
         '[]'::jsonb
       ) AS images,
       COUNT(*) OVER() AS total
@@ -117,7 +117,7 @@ const getHotelDetailById = async (hotelId) => {
     h.discount_percent,
 
     COALESCE(
-      (SELECT jsonb_agg(img.url) FROM hotel.images img WHERE img.hotel_id = h.id),
+      (SELECT img.url::jsonb FROM hotel.images img WHERE img.hotel_id = h.id LIMIT 1),
       '[]'::jsonb
     ) AS images,
 
@@ -306,6 +306,8 @@ const getRoomsByHotelId = async ({ hotelId, page = 1, limit = 10 }) => {
         r.price_per_night,
         r.max_guests,
         r.description,
+        r.bed,
+        r.size,
         r.total_quantity,
         r.created_at,
         COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities,

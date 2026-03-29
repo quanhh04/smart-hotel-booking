@@ -25,6 +25,16 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
       throw createError('Loại phòng không tồn tại', 404);
     }
 
+    const hotelResult = await client.query(
+      `
+        SELECT name
+        FROM hotel.hotels
+        WHERE id = $1
+        FOR UPDATE
+      `,
+      [roomType.hotel_id],
+    );
+
     log.info('createBooking: checking availability', { roomTypeId, totalQuantity: roomType.total_quantity });
 
     // Đếm booking đang hoạt động trùng ngày
@@ -69,6 +79,7 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
       total_amount: totalAmount,
       nights,
       room_type: roomType,
+      hotel_name: hotelResult.rows[0].name
     };
   } catch (error) {
     await client.query('ROLLBACK');
@@ -86,7 +97,9 @@ const getBookingsByUserId = async (userId) => {
       SELECT
         b.id, b.room_type_id, b.user_id, b.check_in, b.check_out,
         b.status, b.payment_method, b.created_at,
-        r.name AS room_name, r.price_per_night, h.name AS hotel_name
+        r.name AS room_name, r.price_per_night,
+        h.id AS hotel_id, h.name AS hotel_name, h.address AS hotel_address,
+        (r.price_per_night * (b.check_out - b.check_in))::numeric AS total_price
       FROM booking.bookings b
       LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
       LEFT JOIN hotel.hotels h ON h.id = r.hotel_id

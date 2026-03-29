@@ -8,7 +8,7 @@ const getCities = async ({ limit = 10 } = {}) => {
     `SELECT c.id, c.name, c.subtitle, c.thumbnail, c.created_at,
             COUNT(h.id)::int AS hotel_count
      FROM hotel.cities c
-     LEFT JOIN hotel.hotels h ON LOWER(h.address) LIKE '%' || LOWER(c.name) || '%'
+     LEFT JOIN hotel.hotels h ON unaccent(LOWER(h.address)) LIKE '%' || unaccent(LOWER(c.name)) || '%'
      GROUP BY c.id
      ORDER BY hotel_count DESC, c.name ASC
      LIMIT $1`,
@@ -24,7 +24,7 @@ const getCityById = async (id) => {
     `SELECT c.id, c.name, c.subtitle, c.thumbnail, c.created_at,
             COUNT(h.id)::int AS hotel_count
      FROM hotel.cities c
-     LEFT JOIN hotel.hotels h ON LOWER(h.address) LIKE '%' || LOWER(c.name) || '%'
+     LEFT JOIN hotel.hotels h ON unaccent(LOWER(h.address)) LIKE '%' || unaccent(LOWER(c.name)) || '%'
      WHERE c.id = $1
      GROUP BY c.id`,
     [id],
