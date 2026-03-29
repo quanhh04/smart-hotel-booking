@@ -628,19 +628,47 @@ function buildResponse(intent, results, slots) {
 async function chat(message, sessionId, userId) {
   log.info('chat: processing message', { sessionId, userId });
 
-  // 1. Get existing conversation context
   const existingCtx = getContext(sessionId);
+  const conversationHistory = existingCtx ? existingCtx.history : [];
 
-  // 2. Detect intent
+  // Try Gemini-powered chat (with function calling)
+  const llmResult = await llm.chat(message, conversationHistory, { userId, model });
+
+  if (llmResult) {
+    // Gemini handled everything
+    const { reply, rooms, booking } = llmResult;
+
+    // Log analytics (fire-and-forget)
+    Promise.resolve().then(async () => {
+      try {
+        await model.insertIntentLog({ intent: 'llm', message, slots: {}, sessionId, userId });
+      } catch (err) {
+        log.error('chat: analytics logging failed', { error: err.message });
+      }
+    });
+
+    saveMessage(sessionId, message, reply);
+    const ctx = getContext(sessionId);
+
+    return {
+      intent: 'llm',
+      context: {
+        session_id: sessionId || null,
+        message_count: ctx ? ctx.history.length / 2 : 1,
+        llm: true,
+      },
+      reply,
+      results: rooms && rooms.length > 0 ? rooms : undefined,
+      booking: booking || undefined,
+    };
+  }
+
+  // Fallback: rule-based (when Gemini unavailable)
+  log.info('chat: falling back to rule-based');
   const { intent } = detectIntent(message);
-
-  // 3. Extract slots from message
   const newSlots = extractSlots(message);
-
-  // 4. Merge slots with existing context
   const mergedSlots = mergeSlots(sessionId, newSlots);
 
-  // 5. Search rooms if intent requires it
   let results = [];
   const searchIntents = [INTENTS.SEARCH_ROOMS, INTENTS.PRICE_INFO, INTENTS.AMENITY_INFO, INTENTS.HOTEL_INFO, INTENTS.ROOM_DETAIL];
   if (searchIntents.includes(intent)) {
@@ -648,47 +676,11 @@ async function chat(message, sessionId, userId) {
       results = await model.searchRooms(mergedSlots);
     } catch (err) {
       log.error('chat: searchRooms failed', { error: err.message });
-      results = [];
     }
   }
 
-  // 6. Build response — try LLM first, fallback to rule-based
-  const conversationHistory = existingCtx ? existingCtx.history : [];
-  let reply = await llm.generateResponse(message, results, mergedSlots, conversationHistory);
-  const usedLlm = !!reply;
+  const reply = buildResponse(intent, results, mergedSlots);
 
-  // 6b. Check if LLM wants to perform an action (e.g. book a room)
-  let bookingResult = null;
-  if (reply) {
-    const action = llm.parseAction(reply);
-    if (action && action.action === 'book') {
-      if (!userId) {
-        reply = 'Bạn cần đăng nhập để đặt phòng nhé! Bấm nút "Đăng nhập" ở góc trên phải.';
-      } else {
-        try {
-          const bookingService = require('../booking/booking.service');
-          const booking = await bookingService.createBooking({
-            userId,
-            roomTypeId: action.params.room_type_id,
-            checkIn: action.params.check_in,
-            checkOut: action.params.check_out,
-            paymentMethod: action.params.payment_method || 'pay_at_hotel',
-          });
-          bookingResult = { id: booking.id, status: booking.status };
-          reply = action.cleanReply || `Đặt phòng thành công! Mã đơn: ${booking.id}. Bạn có thể xem chi tiết trong mục "Đặt phòng của tôi".`;
-        } catch (err) {
-          log.error('chat: booking failed', { error: err.message });
-          reply = `Không thể đặt phòng: ${err.message}. Bạn thử lại hoặc đặt trực tiếp trên trang chi tiết khách sạn nhé!`;
-        }
-      }
-    }
-  }
-
-  if (!reply) {
-    reply = buildResponse(intent, results, mergedSlots);
-  }
-
-  // 7. Log analytics (fire-and-forget — never block response)
   Promise.resolve().then(async () => {
     try {
       await model.insertIntentLog({ intent, message, slots: mergedSlots, sessionId, userId });
@@ -700,26 +692,22 @@ async function chat(message, sessionId, userId) {
     }
   });
 
-  // 8. Save message to conversation history
   saveMessage(sessionId, message, reply);
-
-  // 9. Build context summary
   const ctx = getContext(sessionId);
-  const messageCount = ctx ? ctx.history.length / 2 : 1;
 
   return {
     intent,
     slots: mergedSlots,
     context: {
       session_id: sessionId || null,
-      message_count: messageCount,
-      llm: usedLlm,
+      message_count: ctx ? ctx.history.length / 2 : 1,
+      llm: false,
     },
     reply,
     results: results.length > 0 ? results : undefined,
-    booking: bookingResult || undefined,
   };
 }
+
 
 /**
  * Gợi ý phòng dựa trên sở thích người dùng (scoring 5 chiều).

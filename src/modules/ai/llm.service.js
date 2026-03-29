@@ -1,6 +1,7 @@
 /**
- * LLM Service - Google Gemini integration
- * Fallback to rule-based if no API key or API fails
+ * LLM Service - Google Gemini with Function Calling
+ * Gemini handles all chat logic: intent detection, room search, booking
+ * Fallback to rule-based only when Gemini is unavailable
  */
 const createLogger = require('../../common/helpers/logger');
 const log = createLogger('llm.service');
@@ -9,161 +10,226 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-function isEnabled() {
-  return !!GEMINI_API_KEY;
-}
+function isEnabled() { return !!GEMINI_API_KEY; }
 
-// Startup log
 if (GEMINI_API_KEY) {
   log.info('LLM enabled', { model: GEMINI_MODEL, keyPrefix: GEMINI_API_KEY.substring(0, 8) + '...' });
 } else {
-  log.warn('LLM disabled: GEMINI_API_KEY not set in .env — chatbot will use rule-based fallback');
+  log.warn('LLM disabled: GEMINI_API_KEY not set — chatbot uses rule-based fallback');
 }
 
-function buildSystemPrompt(rooms, slots, conversationHistory) {
-  const roomContext = rooms.length > 0
-    ? `\n\nKết quả tìm kiếm phòng (${rooms.length} phòng):\n` +
-      rooms.slice(0, 5).map((r, i) =>
-        `${i + 1}. ${r.room_name} - ${r.hotel_name} (${r.hotel_address})\n` +
-        `   Giá: ${Number(r.price_per_night).toLocaleString('vi-VN')} ₫/đêm | Tối đa: ${r.max_guests} khách\n` +
-        `   Tiện ích: ${(r.amenities || []).join(', ')}`
-      ).join('\n')
-    : '';
+// ========== SYSTEM PROMPT ==========
+const SYSTEM_PROMPT = `Bạn là trợ lý đặt phòng khách sạn thông minh của BookingVN. Trả lời bằng tiếng Việt, thân thiện, ngắn gọn.
 
-  const slotContext = Object.entries(slots || {})
-    .filter(([, v]) => v != null)
-    .map(([k, v]) => `${k}: ${v}`)
-    .join(', ');
-
-  const historyText = (conversationHistory || [])
-    .slice(-6)
-    .map(h => `${h.role === 'user' ? 'Khách' : 'Trợ lý'}: ${h.content}`)
-    .join('\n');
-
-  return `Bạn là trợ lý đặt phòng khách sạn thông minh của BookingVN. Trả lời bằng tiếng Việt, thân thiện, ngắn gọn.
+Bạn có các công cụ (tools) để:
+1. search_rooms: Tìm phòng khách sạn theo tiêu chí (thành phố, giá, số khách, tiện ích, ngày)
+2. get_hotel_detail: Xem chi tiết khách sạn theo ID
+3. create_booking: Đặt phòng cho khách (cần room_type_id, check_in, check_out)
 
 Quy tắc:
-- Trả lời tự nhiên, không robot
-- Nếu có kết quả phòng, giới thiệu ngắn gọn và gợi ý đặt phòng
-- Nếu không có kết quả, gợi ý thay đổi tiêu chí
-- Giá hiển thị dạng VND (VD: 2.200.000 ₫)
-- Không bịa thông tin phòng/khách sạn ngoài dữ liệu được cung cấp
-- Có thể trả lời câu hỏi chung về du lịch Việt Nam
-- QUAN TRỌNG: Khi khách muốn đặt phòng (nói "đặt", "book", "ok đặt", "đặt hộ", "đặt phòng này"), bạn PHẢI trả về CHÍNH XÁC format JSON sau ở DÒNG ĐẦU TIÊN, sau đó mới viết message:
-  {"action":"book","room_type_id":<số>,"check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD","payment_method":"pay_at_hotel"}
-- Chỉ trả action book khi có đủ: room_type_id (từ kết quả tìm kiếm), check_in, check_out
-- Nếu thiếu thông tin, HỎI khách thay vì đặt
-- KHÔNG BAO GIỜ bịa rằng đã đặt phòng thành công nếu chưa có action book
-${slotContext ? `\nThông tin khách đã cung cấp: ${slotContext}` : ''}
-${roomContext}
-${historyText ? `\nLịch sử hội thoại:\n${historyText}` : ''}`;
-}
+- Khi khách hỏi về phòng/khách sạn → dùng search_rooms để tìm, KHÔNG bịa data
+- Khi khách muốn đặt phòng → dùng create_booking, KHÔNG bịa kết quả
+- Khi khách hỏi chi tiết khách sạn → dùng get_hotel_detail
+- Giá hiển thị dạng VND (VD: 2.200.000 ₫/đêm)
+- Trả lời tự nhiên, có thể trả lời câu hỏi chung về du lịch Việt Nam
+- Nếu thiếu thông tin để đặt phòng (ngày, loại phòng), HỎI khách trước`;
 
-async function generateResponse(userMessage, rooms, slots, conversationHistory) {
-  if (!isEnabled()) {
-    log.warn('LLM skipped: GEMINI_API_KEY not set');
-    return null;
-  }
-
-  log.info('LLM request starting', { model: GEMINI_MODEL, roomCount: rooms.length, messageLength: userMessage.length });
-
-  try {
-    const systemPrompt = buildSystemPrompt(rooms, slots, conversationHistory);
-
-    const body = {
-      contents: [
-        { role: 'user', parts: [{ text: systemPrompt + '\n\nKhách: ' + userMessage }] },
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 500,
-        topP: 0.9,
+// ========== TOOL DEFINITIONS ==========
+const TOOLS = [{
+  functionDeclarations: [
+    {
+      name: 'search_rooms',
+      description: 'Tìm kiếm phòng khách sạn theo tiêu chí. Trả về danh sách phòng phù hợp.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          city: { type: 'STRING', description: 'Tên thành phố (VD: Đà Nẵng, Hà Nội)' },
+          min_price: { type: 'NUMBER', description: 'Giá tối thiểu (VND/đêm)' },
+          max_price: { type: 'NUMBER', description: 'Giá tối đa (VND/đêm)' },
+          guests: { type: 'NUMBER', description: 'Số khách' },
+          amenities: { type: 'STRING', description: 'Tiện ích cần có, phân cách bằng dấu phẩy' },
+          check_in: { type: 'STRING', description: 'Ngày nhận phòng (YYYY-MM-DD)' },
+          check_out: { type: 'STRING', description: 'Ngày trả phòng (YYYY-MM-DD)' },
+        },
       },
-    };
+    },
+    {
+      name: 'get_hotel_detail',
+      description: 'Lấy thông tin chi tiết của một khách sạn theo ID.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          hotel_id: { type: 'NUMBER', description: 'ID khách sạn' },
+        },
+        required: ['hotel_id'],
+      },
+    },
+    {
+      name: 'create_booking',
+      description: 'Đặt phòng khách sạn cho khách. Chỉ gọi khi khách xác nhận muốn đặt và có đủ thông tin.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          room_type_id: { type: 'NUMBER', description: 'ID loại phòng muốn đặt' },
+          check_in: { type: 'STRING', description: 'Ngày nhận phòng (YYYY-MM-DD)' },
+          check_out: { type: 'STRING', description: 'Ngày trả phòng (YYYY-MM-DD)' },
+          payment_method: { type: 'STRING', description: 'Phương thức thanh toán: online hoặc pay_at_hotel', enum: ['online', 'pay_at_hotel'] },
+        },
+        required: ['room_type_id', 'check_in', 'check_out'],
+      },
+    },
+  ],
+}];
 
-    const startTime = Date.now();
-    const res = await fetch(GEMINI_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const elapsed = Date.now() - startTime;
+// ========== GEMINI API CALL ==========
+async function callGemini(contents, retryCount = 0) {
+  const body = {
+    systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+    contents,
+    tools: TOOLS,
+    generationConfig: { temperature: 0.7, maxOutputTokens: 800, topP: 0.9 },
+  };
 
-    // Retry once on rate limit (429)
-    if (res.status === 429) {
-      const retryBody = await res.text();
-      log.warn('LLM rate limited (429)', { elapsed, retryAfter: retryBody.match(/retry in ([\d.]+s)/)?.[1] || '2s' });
-      await new Promise(r => setTimeout(r, 2000));
+  const startTime = Date.now();
+  const res = await fetch(GEMINI_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const elapsed = Date.now() - startTime;
 
-      const retryStart = Date.now();
-      const retry = await fetch(GEMINI_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const retryElapsed = Date.now() - retryStart;
+  if (res.status === 429 && retryCount < 1) {
+    log.warn('LLM rate limited (429), retrying in 2s...', { elapsed });
+    await new Promise(r => setTimeout(r, 2000));
+    return callGemini(contents, retryCount + 1);
+  }
 
-      if (!retry.ok) {
-        const retryErrText = await retry.text();
-        log.error('LLM retry failed', { status: retry.status, elapsed: retryElapsed, body: retryErrText.substring(0, 200) });
-        return null;
-      }
-      const retryData = await retry.json();
-      const retryText = retryData?.candidates?.[0]?.content?.parts?.[0]?.text;
-      log.info('LLM retry succeeded', { elapsed: retryElapsed, length: retryText?.length || 0 });
-      return retryText ? retryText.trim() : null;
-    }
-
-    if (!res.ok) {
-      const errText = await res.text();
-      log.error('LLM API error', { status: res.status, elapsed, body: errText.substring(0, 300) });
-      return null;
-    }
-
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    const finishReason = data?.candidates?.[0]?.finishReason;
-    const tokenCount = data?.usageMetadata?.totalTokenCount;
-
-    if (!text) {
-      log.warn('LLM returned empty response', { finishReason, elapsed, candidates: data?.candidates?.length || 0 });
-      return null;
-    }
-
-    log.info('LLM response OK', { elapsed, length: text.length, finishReason, tokens: tokenCount || 'N/A' });
-    return text.trim();
-  } catch (err) {
-    log.error('LLM call exception', { error: err.message, stack: err.stack?.split('\n')[1]?.trim() });
+  if (!res.ok) {
+    const errText = await res.text();
+    log.error('LLM API error', { status: res.status, elapsed, body: errText.substring(0, 300) });
     return null;
   }
+
+  const data = await res.json();
+  const candidate = data?.candidates?.[0];
+  const tokens = data?.usageMetadata?.totalTokenCount;
+  log.info('LLM response', { elapsed, finishReason: candidate?.finishReason, tokens: tokens || 'N/A' });
+  return candidate?.content || null;
 }
 
-/**
- * Parse action JSON from LLM response (first line)
- * Returns { action, params, cleanReply } or null
- */
-function parseAction(reply) {
-  if (!reply) return null;
-  const lines = reply.split('\n');
-  const firstLine = lines[0].trim();
-
-  // Try to extract JSON from first line
-  const jsonMatch = firstLine.match(/^\{.*\}$/);
-  if (!jsonMatch) return null;
+// ========== TOOL EXECUTORS ==========
+async function executeToolCall(functionCall, { userId, model }) {
+  const { name, args } = functionCall;
+  log.info('Executing tool', { name, args });
 
   try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (parsed.action) {
-      return {
-        action: parsed.action,
-        params: parsed,
-        cleanReply: lines.slice(1).join('\n').trim(),
-      };
+    switch (name) {
+      case 'search_rooms': {
+        const rooms = await model.searchRooms({
+          city: args.city || null,
+          min_price: args.min_price || null,
+          max_price: args.max_price || null,
+          guests: args.guests || null,
+          amenities: args.amenities ? args.amenities.split(',').map(a => a.trim()) : null,
+          check_in: args.check_in || null,
+          check_out: args.check_out || null,
+        });
+        log.info('search_rooms result', { count: rooms.length });
+        return { rooms };
+      }
+
+      case 'get_hotel_detail': {
+        const hotelModel = require('../hotel/hotel.model');
+        const hotel = await hotelModel.getHotelDetailById(args.hotel_id);
+        return hotel ? { hotel } : { error: 'Không tìm thấy khách sạn' };
+      }
+
+      case 'create_booking': {
+        if (!userId) {
+          return { error: 'Khách chưa đăng nhập. Vui lòng yêu cầu khách đăng nhập trước khi đặt phòng.' };
+        }
+        const bookingService = require('../booking/booking.service');
+        const booking = await bookingService.createBooking({
+          userId,
+          roomTypeId: args.room_type_id,
+          checkIn: args.check_in,
+          checkOut: args.check_out,
+          paymentMethod: args.payment_method || 'pay_at_hotel',
+        });
+        log.info('create_booking success', { bookingId: booking.id });
+        return { booking: { id: booking.id, status: booking.status } };
+      }
+
+      default:
+        return { error: `Unknown tool: ${name}` };
     }
-  } catch {
-    // Not valid JSON, ignore
+  } catch (err) {
+    log.error('Tool execution failed', { name, error: err.message });
+    return { error: err.message };
   }
-  return null;
 }
 
-module.exports = { isEnabled, generateResponse, parseAction };
+// ========== MAIN CHAT FUNCTION ==========
+/**
+ * Full Gemini-powered chat with function calling loop.
+ * @param {string} userMessage
+ * @param {Array} conversationHistory - [{role, content}]
+ * @param {object} context - { userId, model (ai.model) }
+ * @returns {{ reply: string, rooms: Array, booking: object|null }} or null if LLM unavailable
+ */
+async function chat(userMessage, conversationHistory, context) {
+  if (!isEnabled()) {
+    log.warn('LLM skipped: not enabled');
+    return null;
+  }
+
+  log.info('LLM chat starting', { messageLength: userMessage.length, historyLength: conversationHistory.length });
+
+  // Build Gemini contents from conversation history
+  const contents = [];
+  for (const msg of conversationHistory.slice(-10)) {
+    contents.push({
+      role: msg.role === 'user' ? 'user' : 'model',
+      parts: [{ text: msg.content }],
+    });
+  }
+  contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+  let collectedRooms = [];
+  let bookingResult = null;
+  const MAX_TOOL_ROUNDS = 3;
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const responseContent = await callGemini(contents);
+    if (!responseContent) return null;
+
+    // Check if Gemini wants to call a tool
+    const functionCallPart = responseContent.parts?.find(p => p.functionCall);
+    if (!functionCallPart) {
+      // No tool call — extract text reply
+      const textPart = responseContent.parts?.find(p => p.text);
+      const reply = textPart?.text?.trim() || 'Xin lỗi, tôi không hiểu. Bạn thử hỏi lại nhé!';
+      log.info('LLM chat done', { rounds: round + 1, roomCount: collectedRooms.length, hasBooking: !!bookingResult });
+      return { reply, rooms: collectedRooms, booking: bookingResult };
+    }
+
+    // Execute the tool
+    const toolResult = await executeToolCall(functionCallPart.functionCall, context);
+
+    // Collect rooms/booking from tool results
+    if (toolResult.rooms) collectedRooms = toolResult.rooms;
+    if (toolResult.booking) bookingResult = toolResult.booking;
+
+    // Feed tool result back to Gemini
+    contents.push({ role: 'model', parts: [{ functionCall: functionCallPart.functionCall }] });
+    contents.push({
+      role: 'user',
+      parts: [{ functionResponse: { name: functionCallPart.functionCall.name, response: toolResult } }],
+    });
+  }
+
+  log.warn('LLM chat exceeded max tool rounds');
+  return { reply: 'Xin lỗi, tôi gặp sự cố khi xử lý. Bạn thử lại nhé!', rooms: collectedRooms, booking: bookingResult };
+}
+
+module.exports = { isEnabled, chat, callGemini };
