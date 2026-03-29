@@ -68,6 +68,10 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
       h.stars,
       h.discount_percent,
       h.created_at,
+      COALESCE(
+        (SELECT jsonb_agg(img.url) FROM hotel.images img WHERE img.hotel_id = h.id),
+        '[]'::jsonb
+      ) AS images,
       COUNT(*) OVER() AS total
     FROM hotel.hotels h
     ${whereClause}
