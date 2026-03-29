@@ -1,4 +1,6 @@
 const nodemailer = require('nodemailer');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('email.service');
 
 let transporter = null;
 
@@ -26,7 +28,7 @@ const getTransporter = async () => {
         pass: testAccount.pass,
       },
     });
-    console.log('Ethereal test account created:', testAccount.user);
+    log.info('Ethereal test account created', { user: testAccount.user });
   }
 
   return transporter;
@@ -55,10 +57,10 @@ const sendBookingConfirmation = async ({ to, bookingId, hotelName, roomName, che
 
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
-      console.log('Preview email:', previewUrl);
+      log.info('Preview booking confirmation email', { bookingId, previewUrl });
     }
   } catch (error) {
-    console.error(`Failed to send booking confirmation email for booking #${bookingId}:`, error.message);
+    log.error(`Failed to send booking confirmation email for booking #${bookingId}`, error);
   }
 };
 
@@ -84,10 +86,10 @@ const sendCheckInReminder = async ({ to, bookingId, hotelName, roomName, checkIn
 
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
-      console.log('Preview email:', previewUrl);
+      log.info('Preview check-in reminder email', { bookingId, previewUrl });
     }
   } catch (error) {
-    console.error(`Failed to send check-in reminder email for booking #${bookingId}:`, error.message);
+    log.error(`Failed to send check-in reminder email for booking #${bookingId}`, error);
   }
 };
 

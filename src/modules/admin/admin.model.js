@@ -1,9 +1,12 @@
 const pool = require('../../config/db');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('admin.model');
 
 /**
  * Thống kê tổng quan: tổng booking, doanh thu, số khách sạn, phòng, người dùng.
  */
 const getStats = async () => {
+  log.info('getStats: querying dashboard stats');
   const result = await pool.query(`
     SELECT
       (SELECT COUNT(*)::int FROM booking.bookings) AS total_bookings,
@@ -12,6 +15,7 @@ const getStats = async () => {
       (SELECT COUNT(*)::int FROM hotel.room_types) AS total_rooms,
       (SELECT COUNT(*)::int FROM auth.users) AS total_users
   `);
+  log.info('getStats: done');
   return result.rows[0];
 };
 
@@ -19,6 +23,7 @@ const getStats = async () => {
  * Thống kê doanh thu theo khoảng thời gian, group by ngày.
  */
 const getRevenue = async (startDate, endDate) => {
+  log.info('getRevenue: querying', { startDate, endDate });
   const result = await pool.query(
     `
       SELECT
@@ -33,6 +38,7 @@ const getRevenue = async (startDate, endDate) => {
     `,
     [startDate, endDate],
   );
+  log.info('getRevenue: done', { dataPoints: result.rows.length });
   return result.rows;
 };
 
@@ -40,6 +46,7 @@ const getRevenue = async (startDate, endDate) => {
  * Danh sách người dùng (không bao gồm password), phân trang.
  */
 const getUsers = async (page = 1, limit = 10) => {
+  log.info('getUsers: querying', { page, limit });
   const offset = (page - 1) * limit;
   const result = await pool.query(
     `
@@ -55,6 +62,7 @@ const getUsers = async (page = 1, limit = 10) => {
 
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total, 10) : 0;
   const users = result.rows.map(({ total: _, ...user }) => user);
+  log.info('getUsers: done', { total });
   return { users, total };
 };
 
@@ -62,6 +70,7 @@ const getUsers = async (page = 1, limit = 10) => {
  * Top khách sạn theo doanh thu hoặc số booking.
  */
 const getTopHotels = async (sortBy = 'revenue', limit = 10) => {
+  log.info('getTopHotels: querying', { sortBy, limit });
   const orderColumn = sortBy === 'booking_count'
     ? 'booking_count'
     : 'revenue';
@@ -84,7 +93,7 @@ const getTopHotels = async (sortBy = 'revenue', limit = 10) => {
     `,
     [limit],
   );
-
+  log.info('getTopHotels: done', { count: result.rows.length });
   return result.rows;
 };
 

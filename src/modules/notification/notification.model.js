@@ -1,7 +1,10 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('notification.model');
 
 const createNotification = async ({ userId, type, title, message, metadata = {} }) => {
+  log.info('createNotification: inserting', { userId, type });
   const result = await pool.query(
     `
       INSERT INTO notification.notifications (user_id, type, title, message, metadata)
@@ -10,11 +13,12 @@ const createNotification = async ({ userId, type, title, message, metadata = {} 
     `,
     [userId, type, title, message, JSON.stringify(metadata)],
   );
-
+  log.info('createNotification: done', { notificationId: result.rows[0].id });
   return result.rows[0];
 };
 
 const createBulkNotifications = async (notifications) => {
+  log.info('createBulkNotifications: inserting', { count: notifications.length });
   if (!notifications.length) return [];
 
   const values = [];
@@ -35,11 +39,12 @@ const createBulkNotifications = async (notifications) => {
     `,
     params,
   );
-
+  log.info('createBulkNotifications: done', { inserted: result.rows.length });
   return result.rows;
 };
 
 const getByUserId = async (userId, page, limit) => {
+  log.info('getByUserId: querying', { userId, page, limit });
   const currentPage = Number(page) || 1;
   const currentLimit = Number(limit) || 10;
   const offset = (currentPage - 1) * currentLimit;
@@ -55,6 +60,7 @@ const getByUserId = async (userId, page, limit) => {
     `,
     [userId, currentLimit, offset],
   );
+  log.info('getByUserId: done', { userId, count: result.rows.length });
 
   return {
     notifications: result.rows,
@@ -63,6 +69,7 @@ const getByUserId = async (userId, page, limit) => {
 };
 
 const getUnreadCount = async (userId) => {
+  log.info('getUnreadCount: querying', { userId });
   const result = await pool.query(
     `
       SELECT COUNT(*)::int AS unread_count
@@ -71,11 +78,12 @@ const getUnreadCount = async (userId) => {
     `,
     [userId],
   );
-
+  log.info('getUnreadCount: done', { userId, unreadCount: result.rows[0].unread_count });
   return result.rows[0].unread_count;
 };
 
 const getById = async (notificationId) => {
+  log.info('getById: querying', { notificationId });
   const result = await pool.query(
     `
       SELECT id, user_id, type, title, message, metadata, is_read, created_at
@@ -84,11 +92,12 @@ const getById = async (notificationId) => {
     `,
     [notificationId],
   );
-
+  log.info('getById: done', { notificationId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const markAsRead = async (notificationId) => {
+  log.info('markAsRead: updating', { notificationId });
   const result = await pool.query(
     `
       UPDATE notification.notifications
@@ -98,11 +107,12 @@ const markAsRead = async (notificationId) => {
     `,
     [notificationId],
   );
-
+  log.info('markAsRead: done', { notificationId });
   return result.rows[0] || null;
 };
 
 const markAllAsRead = async (userId) => {
+  log.info('markAllAsRead: updating', { userId });
   const result = await pool.query(
     `
       UPDATE notification.notifications
@@ -111,11 +121,12 @@ const markAllAsRead = async (userId) => {
     `,
     [userId],
   );
-
+  log.info('markAllAsRead: done', { userId, updatedCount: result.rowCount });
   return result.rowCount;
 };
 
 const deleteById = async (notificationId) => {
+  log.info('deleteById: deleting', { notificationId });
   const result = await pool.query(
     `
       DELETE FROM notification.notifications
@@ -123,11 +134,12 @@ const deleteById = async (notificationId) => {
     `,
     [notificationId],
   );
-
+  log.info('deleteById: done', { notificationId });
   return result.rowCount;
 };
 
 const getBookingsForReminder = async () => {
+  log.info('getBookingsForReminder: querying upcoming bookings');
   const result = await pool.query(
     `
       SELECT
@@ -144,15 +156,17 @@ const getBookingsForReminder = async () => {
         AND b.reminder_sent = FALSE
     `,
   );
-
+  log.info('getBookingsForReminder: done', { count: result.rows.length });
   return result.rows;
 };
 
 const markReminderSent = async (bookingId) => {
+  log.info('markReminderSent: updating', { bookingId });
   await pool.query(
     `UPDATE booking.bookings SET reminder_sent = TRUE WHERE id = $1`,
     [bookingId],
   );
+  log.info('markReminderSent: done', { bookingId });
 };
 
 module.exports = {

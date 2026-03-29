@@ -2,6 +2,8 @@ const pool = require('../../config/db');
 const notificationModel = require('./notification.model');
 const emailService = require('./email.service');
 const { createError } = require('../../common/helpers/error');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('notification.service');
 
 const getUserNotifications = async (userId, page, limit) => {
   const { notifications, total } = await notificationModel.getByUserId(userId, page, limit);
@@ -96,7 +98,7 @@ const notifyBookingCreated = async (booking) => {
       });
     }
   } catch (error) {
-    console.error('Failed to create booking created notification:', error.message);
+    log.error('Failed to create booking created notification', error);
   }
 };
 
@@ -113,7 +115,7 @@ const notifyBookingCancelled = async (booking) => {
       },
     });
   } catch (error) {
-    console.error('Failed to create booking cancelled notification:', error.message);
+    log.error('Failed to create booking cancelled notification', error);
   }
 };
 
@@ -131,7 +133,7 @@ const notifyPaymentSuccess = async (payment) => {
       },
     });
   } catch (error) {
-    console.error('Failed to create payment success notification:', error.message);
+    log.error('Failed to create payment success notification', error);
   }
 };
 
@@ -155,7 +157,7 @@ const notifyReviewPosted = async (review) => {
       });
     }
   } catch (error) {
-    console.error('Failed to create review posted notification:', error.message);
+    log.error('Failed to create review posted notification', error);
   }
 };
 
@@ -190,7 +192,7 @@ const sendCheckInReminders = async () => {
 
     return bookings.length;
   } catch (error) {
-    console.error('Failed to send check-in reminders:', error.message);
+    log.error('Failed to send check-in reminders', error);
     return 0;
   }
 };

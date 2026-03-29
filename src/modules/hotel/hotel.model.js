@@ -1,6 +1,9 @@
 const pool = require('../../config/db');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('hotel.model');
 
 const getHotels = async () => {
+  log.info('getHotels: querying all hotels');
   const result = await pool.query(
     `
       SELECT id, name, address, description, created_at
@@ -8,13 +11,14 @@ const getHotels = async () => {
       ORDER BY created_at DESC
     `,
   );
-
+  log.info('getHotels: done', { count: result.rows.length });
   return result.rows;
 };
 
 const ALLOWED_SORT_COLUMNS = ['rating', 'price_from', 'created_at'];
 
 const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOrder, page, limit }) => {
+  log.info('searchHotels: building query', { keyword, minPrice, maxPrice, stars, page, limit });
   const filters = [];
   const values = [];
 
@@ -74,11 +78,12 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
   const result = await pool.query(query, values);
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total, 10) : 0;
   const hotels = result.rows.map(({ total: _total, ...hotel }) => hotel);
-
+  log.info('searchHotels: done', { total });
   return { hotels, total };
 };
 
 const createHotel = async ({ name, address, description }) => {
+  log.info('createHotel: inserting hotel', { name });
   const result = await pool.query(
     `
       INSERT INTO hotel.hotels (name, address, description)
@@ -87,11 +92,12 @@ const createHotel = async ({ name, address, description }) => {
     `,
     [name, address, description],
   );
-
+  log.info('createHotel: done', { hotelId: result.rows[0].id });
   return result.rows[0];
 };
 
 const getHotelDetailById = async (hotelId) => {
+  log.info('getHotelDetailById: querying', { hotelId });
   const result = await pool.query(
     `
     SELECT
@@ -131,11 +137,12 @@ const getHotelDetailById = async (hotelId) => {
     `,
     [hotelId],
   );
-
+  log.info('getHotelDetailById: done', { hotelId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const updateHotel = async (hotelId, { name, address, description }) => {
+  log.info('updateHotel: building update', { hotelId });
   const fields = [];
   const values = [];
   let paramIndex = 1;
@@ -163,11 +170,12 @@ const updateHotel = async (hotelId, { name, address, description }) => {
     'UPDATE hotel.hotels SET ' + fields.join(', ') + ' WHERE id = $' + paramIndex + ' RETURNING *',
     values,
   );
-
+  log.info('updateHotel: done', { hotelId });
   return result.rows[0] || null;
 };
 
 const hasActiveBookings = async (hotelId) => {
+  log.info('hasActiveBookings: checking', { hotelId });
   const result = await pool.query(
     `
       SELECT COUNT(*)::int AS count
@@ -178,11 +186,13 @@ const hasActiveBookings = async (hotelId) => {
     `,
     [hotelId],
   );
-
-  return result.rows[0].count > 0;
+  const hasActive = result.rows[0].count > 0;
+  log.info('hasActiveBookings: done', { hotelId, hasActive });
+  return hasActive;
 };
 
 const deleteHotel = async (hotelId) => {
+  log.info('deleteHotel: starting transaction', { hotelId });
   const client = await pool.connect();
 
   try {
@@ -215,8 +225,10 @@ const deleteHotel = async (hotelId) => {
     );
 
     await client.query('COMMIT');
+    log.info('deleteHotel: done', { hotelId });
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('deleteHotel: failed', error);
     throw error;
   } finally {
     client.release();
@@ -224,6 +236,7 @@ const deleteHotel = async (hotelId) => {
 };
 
 const addHotelImage = async (hotelId, url) => {
+  log.info('addHotelImage: adding image', { hotelId });
   const existing = await pool.query(
     'SELECT id FROM hotel.images WHERE hotel_id = $1',
     [hotelId],
@@ -237,6 +250,7 @@ const addHotelImage = async (hotelId, url) => {
        RETURNING url`,
       [hotelId, JSON.stringify([url])],
     );
+    log.info('addHotelImage: appended to existing', { hotelId });
     return result.rows[0].url;
   }
 
@@ -246,10 +260,12 @@ const addHotelImage = async (hotelId, url) => {
      RETURNING url`,
     [hotelId, JSON.stringify([url])],
   );
+  log.info('addHotelImage: created new entry', { hotelId });
   return result.rows[0].url;
 };
 
 const deleteHotelImage = async (hotelId, imageIndex) => {
+  log.info('deleteHotelImage: removing image', { hotelId, imageIndex });
   const result = await pool.query(
     `UPDATE hotel.images
      SET url = url - $2::int
@@ -257,18 +273,22 @@ const deleteHotelImage = async (hotelId, imageIndex) => {
      RETURNING url`,
     [hotelId, imageIndex],
   );
+  log.info('deleteHotelImage: done', { hotelId, imageIndex });
   return result.rows[0] ? result.rows[0].url : null;
 };
 
 const getHotelById = async (hotelId) => {
+  log.info('getHotelById: querying', { hotelId });
   const result = await pool.query(
     'SELECT id FROM hotel.hotels WHERE id = $1',
     [hotelId],
   );
+  log.info('getHotelById: done', { hotelId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const getRoomsByHotelId = async ({ hotelId, page = 1, limit = 10 }) => {
+  log.info('getRoomsByHotelId: querying', { hotelId, page, limit });
   const currentPage = Number(page) || 1;
   const currentLimit = Number(limit) || 10;
   const offset = (currentPage - 1) * currentLimit;
@@ -299,6 +319,7 @@ const getRoomsByHotelId = async ({ hotelId, page = 1, limit = 10 }) => {
 
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
   const rooms = result.rows.map(({ total_count, ...room }) => room);
+  log.info('getRoomsByHotelId: done', { hotelId, total });
   return { rooms, total };
 };
 

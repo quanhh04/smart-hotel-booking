@@ -1,6 +1,9 @@
 const pool = require('../../config/db');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('auth.model');
 
 const findUserByEmail = async (email) => {
+  log.info('findUserByEmail: querying', { email });
   const result = await pool.query(
     `
       SELECT id, email, password, role, created_at
@@ -14,6 +17,7 @@ const findUserByEmail = async (email) => {
 };
 
 const createUser = async ({ email, password, role }) => {
+  log.info('createUser: inserting', { email, role });
   const result = await pool.query(
     `
       INSERT INTO auth.users (email, password, role)
@@ -27,6 +31,7 @@ const createUser = async ({ email, password, role }) => {
 };
 
 const updateUserProfile = async (userId, { displayName, phone }) => {
+  log.info('updateUserProfile: updating', { userId });
   const result = await pool.query(
     `
       UPDATE auth.users
@@ -41,6 +46,7 @@ const updateUserProfile = async (userId, { displayName, phone }) => {
 };
 
 const updateUserPassword = async (userId, hashedPassword) => {
+  log.info('updateUserPassword: updating', { userId });
   await pool.query(
     `
       UPDATE auth.users
@@ -52,6 +58,7 @@ const updateUserPassword = async (userId, hashedPassword) => {
 };
 
 const findUserById = async (userId) => {
+  log.info('findUserById: querying', { userId });
   const result = await pool.query(
     `
       SELECT id, email, password, role, display_name, phone, created_at

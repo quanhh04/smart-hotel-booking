@@ -1,4 +1,6 @@
 const pool = require('../../config/db');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('room.model');
 
 const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut }) => {
   const filters = [];
@@ -44,6 +46,7 @@ const buildRoomFilters = ({ minPrice, maxPrice, guests, amenities, checkIn, chec
 };
 
 const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkOut, page = 1, limit = 10 }) => {
+  log.info('getRooms: building query', { minPrice, maxPrice, guests, page, limit });
   const filterAmenities = amenities ? amenities.split(',').map((item) => item.trim()).filter(Boolean) : [];
   const { filters, values, joinAmenities, amenitiesCount, hasDateFilter } = buildRoomFilters({
     minPrice,
@@ -119,6 +122,7 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkO
   const result = await pool.query(query, values);
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count, 10) : 0;
   const rooms = result.rows.map(({ total_count, ...room }) => room);
+  log.info('getRooms: done', { total });
   return { rooms, total };
 };
 
@@ -131,6 +135,7 @@ const createRoom = async ({
   amenities,
   total_quantity,
 }) => {
+  log.info('createRoom: starting transaction', { hotel_id, name });
   const client = await pool.connect();
 
   try {
@@ -146,6 +151,7 @@ const createRoom = async ({
     );
 
     const room = roomResult.rows[0];
+    log.info('createRoom: room inserted, processing amenities', { roomId: room.id });
     const amenityNames = amenities.map((item) => item.trim()).filter(Boolean);
 
     const amenityIds = [];
@@ -174,6 +180,7 @@ const createRoom = async ({
     }
 
     await client.query('COMMIT');
+    log.info('createRoom: done', { roomId: room.id });
 
     return {
       ...room,
@@ -181,6 +188,7 @@ const createRoom = async ({
     };
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('createRoom: failed', error);
     throw error;
   } finally {
     client.release();
@@ -188,6 +196,7 @@ const createRoom = async ({
 };
 
 const getRoomById = async (roomId) => {
+  log.info('getRoomById: querying', { roomId });
   const result = await pool.query(
     `
       SELECT
@@ -208,11 +217,12 @@ const getRoomById = async (roomId) => {
     `,
     [roomId],
   );
-
+  log.info('getRoomById: done', { roomId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const updateRoom = async (roomId, { name, price_per_night, max_guests, description, amenities }) => {
+  log.info('updateRoom: starting transaction', { roomId });
   const client = await pool.connect();
 
   try {
@@ -278,6 +288,7 @@ const updateRoom = async (roomId, { name, price_per_night, max_guests, descripti
     }
 
     await client.query('COMMIT');
+    log.info('updateRoom: committed, fetching updated room', { roomId });
 
     const result = await pool.query(
       `
@@ -300,9 +311,11 @@ const updateRoom = async (roomId, { name, price_per_night, max_guests, descripti
       [roomId],
     );
 
+    log.info('updateRoom: done', { roomId });
     return result.rows[0] || null;
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('updateRoom: failed', error);
     throw error;
   } finally {
     client.release();
@@ -310,6 +323,7 @@ const updateRoom = async (roomId, { name, price_per_night, max_guests, descripti
 };
 
 const hasActiveBookingsForRoom = async (roomId) => {
+  log.info('hasActiveBookingsForRoom: checking', { roomId });
   const result = await pool.query(
     `
       SELECT COUNT(*)::int AS count
@@ -319,11 +333,13 @@ const hasActiveBookingsForRoom = async (roomId) => {
     `,
     [roomId],
   );
-
-  return result.rows[0].count > 0;
+  const hasActive = result.rows[0].count > 0;
+  log.info('hasActiveBookingsForRoom: done', { roomId, hasActive });
+  return hasActive;
 };
 
 const deleteRoom = async (roomId) => {
+  log.info('deleteRoom: starting transaction', { roomId });
   const client = await pool.connect();
 
   try {
@@ -340,8 +356,10 @@ const deleteRoom = async (roomId) => {
     );
 
     await client.query('COMMIT');
+    log.info('deleteRoom: done', { roomId });
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('deleteRoom: failed', error);
     throw error;
   } finally {
     client.release();

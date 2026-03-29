@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const createLogger = require('../common/helpers/logger');
+const log = createLogger('db');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -8,9 +10,9 @@ const pool = new Pool({
 (async () => {
   try {
     await pool.query('SELECT 1');
-    console.log('✅ Connected to PostgreSQL');
+    log.info('Connected to PostgreSQL');
   } catch (err) {
-    console.error('❌ PostgreSQL connection failed:', err);
+    log.error('PostgreSQL connection failed', err);
     process.exit(1);
   }
 })();

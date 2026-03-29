@@ -1,7 +1,10 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
+const createLogger = require('../../common/helpers/logger');
+const log = createLogger('review.model');
 
 const getBookingForReview = async (bookingId) => {
+  log.info('getBookingForReview: querying', { bookingId });
   const result = await pool.query(
     `
       SELECT b.id, b.status, b.check_out, b.user_id, rt.hotel_id
@@ -11,11 +14,12 @@ const getBookingForReview = async (bookingId) => {
     `,
     [bookingId],
   );
-
+  log.info('getBookingForReview: done', { bookingId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const getExistingReview = async (bookingId) => {
+  log.info('getExistingReview: querying', { bookingId });
   const result = await pool.query(
     `
       SELECT id, booking_id, user_id, hotel_id, rating, comment, created_at, updated_at
@@ -24,11 +28,12 @@ const getExistingReview = async (bookingId) => {
     `,
     [bookingId],
   );
-
+  log.info('getExistingReview: done', { bookingId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const getReviewById = async (reviewId) => {
+  log.info('getReviewById: querying', { reviewId });
   const result = await pool.query(
     `
       SELECT id, booking_id, user_id, hotel_id, rating, comment, created_at, updated_at
@@ -37,11 +42,12 @@ const getReviewById = async (reviewId) => {
     `,
     [reviewId],
   );
-
+  log.info('getReviewById: done', { reviewId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const createReview = async ({ bookingId, userId, hotelId, rating, comment }) => {
+  log.info('createReview: starting transaction', { bookingId, userId, hotelId, rating });
   const client = await pool.connect();
 
   try {
@@ -56,6 +62,7 @@ const createReview = async ({ bookingId, userId, hotelId, rating, comment }) => 
       [bookingId, userId, hotelId, rating, comment],
     );
 
+    log.info('createReview: updating hotel rating', { hotelId });
     await client.query(
       `
         UPDATE hotel.hotels
@@ -76,10 +83,11 @@ const createReview = async ({ bookingId, userId, hotelId, rating, comment }) => 
     );
 
     await client.query('COMMIT');
-
+    log.info('createReview: done', { reviewId: reviewResult.rows[0].id });
     return reviewResult.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('createReview: failed', error);
     throw error;
   } finally {
     client.release();
@@ -87,6 +95,7 @@ const createReview = async ({ bookingId, userId, hotelId, rating, comment }) => 
 };
 
 const updateReview = async ({ reviewId, rating, comment, hotelId }) => {
+  log.info('updateReview: starting transaction', { reviewId, hotelId, rating });
   const client = await pool.connect();
 
   try {
@@ -102,6 +111,7 @@ const updateReview = async ({ reviewId, rating, comment, hotelId }) => {
       [rating, comment, reviewId],
     );
 
+    log.info('updateReview: updating hotel rating', { hotelId });
     await client.query(
       `
         UPDATE hotel.hotels
@@ -122,10 +132,11 @@ const updateReview = async ({ reviewId, rating, comment, hotelId }) => {
     );
 
     await client.query('COMMIT');
-
+    log.info('updateReview: done', { reviewId });
     return reviewResult.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('updateReview: failed', error);
     throw error;
   } finally {
     client.release();
@@ -133,6 +144,7 @@ const updateReview = async ({ reviewId, rating, comment, hotelId }) => {
 };
 
 const deleteReview = async ({ reviewId, hotelId }) => {
+  log.info('deleteReview: starting transaction', { reviewId, hotelId });
   const client = await pool.connect();
 
   try {
@@ -146,6 +158,7 @@ const deleteReview = async ({ reviewId, hotelId }) => {
       [reviewId],
     );
 
+    log.info('deleteReview: updating hotel rating', { hotelId });
     await client.query(
       `
         UPDATE hotel.hotels
@@ -166,8 +179,10 @@ const deleteReview = async ({ reviewId, hotelId }) => {
     );
 
     await client.query('COMMIT');
+    log.info('deleteReview: done', { reviewId });
   } catch (error) {
     await client.query('ROLLBACK');
+    log.error('deleteReview: failed', error);
     throw error;
   } finally {
     client.release();
@@ -175,6 +190,7 @@ const deleteReview = async ({ reviewId, hotelId }) => {
 };
 
 const getReviewsByHotelId = async ({ hotelId, page, limit }) => {
+  log.info('getReviewsByHotelId: querying', { hotelId, page, limit });
   const currentPage = Number(page) || 1;
   const currentLimit = Number(limit) || 10;
   const offset = (currentPage - 1) * currentLimit;
@@ -191,6 +207,7 @@ const getReviewsByHotelId = async ({ hotelId, page, limit }) => {
     `,
     [hotelId, currentLimit, offset],
   );
+  log.info('getReviewsByHotelId: done', { hotelId, count: result.rows.length });
 
   return {
     reviews: result.rows,
@@ -199,6 +216,7 @@ const getReviewsByHotelId = async ({ hotelId, page, limit }) => {
 };
 
 const getReviewsByUserId = async (userId) => {
+  log.info('getReviewsByUserId: querying', { userId });
   const result = await pool.query(
     `
       SELECT r.id, r.booking_id, r.user_id, r.hotel_id, r.rating, r.comment, r.created_at, r.updated_at,
@@ -210,7 +228,7 @@ const getReviewsByUserId = async (userId) => {
     `,
     [userId],
   );
-
+  log.info('getReviewsByUserId: done', { userId, count: result.rows.length });
   return result.rows;
 };
 
