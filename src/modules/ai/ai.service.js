@@ -973,12 +973,19 @@ async function getStats(from, to) {
     model.getTopRoomsClicked(from, to),
     model.getConversationStats(from, to),
   ]);
+
+  // Count totals
+  const totalClicks = topRoomsClicked.reduce((sum, r) => sum + (r.count || 0), 0);
+  const totalAmenityQueries = topAmenities.reduce((sum, a) => sum + (a.count || 0), 0);
+
   return {
-    topIntents,
-    topAmenities,
-    topRoomsClicked,
-    totalConversations: conversationStats.totalConversations,
-    totalMessages: conversationStats.totalMessages,
+    top_intents: topIntents,
+    top_amenities: topAmenities,
+    top_rooms: topRoomsClicked,
+    total_sessions: conversationStats.totalConversations || 0,
+    total_messages: conversationStats.totalMessages || 0,
+    total_clicks: totalClicks,
+    total_amenity_queries: totalAmenityQueries,
   };
 }
 
