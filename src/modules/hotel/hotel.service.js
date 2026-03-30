@@ -52,30 +52,6 @@ const removeHotel = async (hotelId) => {
   log.info('removeHotel: done', { hotelId });
 };
 
-const addImage = async (hotelId, url) => {
-  log.info('addImage: checking hotel exists', { hotelId });
-  const hotel = await hotelModel.getHotelDetailById(hotelId);
-  if (!hotel) {
-    throw createError('Không tìm thấy khách sạn', 404);
-  }
-  log.info('addImage: adding image', { hotelId });
-  const result = await hotelModel.addHotelImage(hotelId, url);
-  log.info('addImage: done', { hotelId });
-  return result;
-};
-
-const removeImage = async (hotelId, imageId) => {
-  log.info('removeImage: checking hotel exists', { hotelId });
-  const hotel = await hotelModel.getHotelDetailById(hotelId);
-  if (!hotel) {
-    throw createError('Không tìm thấy khách sạn', 404);
-  }
-  log.info('removeImage: removing image', { hotelId, imageId });
-  const result = await hotelModel.deleteHotelImage(hotelId, imageId);
-  log.info('removeImage: done', { hotelId, imageId });
-  return result;
-};
-
 const getHotelRooms = async (hotelId, page, limit) => {
   log.info('getHotelRooms: checking hotel exists', { hotelId });
   const hotel = await hotelModel.getHotelById(hotelId);
@@ -94,7 +70,5 @@ module.exports = {
   getHotelDetail,
   updateHotel,
   removeHotel,
-  addImage,
-  removeImage,
   getHotelRooms,
 };

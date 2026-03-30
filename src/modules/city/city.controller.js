@@ -13,14 +13,14 @@ const getCityDetail = asyncHandler(async (req, res) => {
 });
 
 const createCity = asyncHandler(async (req, res) => {
-  const { name, subtitle, thumbnail } = req.body;
-  const city = await cityService.addCity({ name, subtitle, thumbnail });
+  const { name, subtitle, thumbnail_id } = req.body;
+  const city = await cityService.addCity({ name, subtitle, thumbnail_id });
   return res.status(201).json(city);
 });
 
 const updateCity = asyncHandler(async (req, res) => {
-  const { name, subtitle, thumbnail } = req.body;
-  const city = await cityService.editCity(Number(req.params.id), { name, subtitle, thumbnail });
+  const { name, subtitle, thumbnail_id } = req.body;
+  const city = await cityService.editCity(Number(req.params.id), { name, subtitle, thumbnail_id });
   return res.status(200).json(city);
 });
 

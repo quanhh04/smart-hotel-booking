@@ -69,7 +69,7 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
       h.discount_percent,
       h.created_at,
       COALESCE(
-        (SELECT img.url::jsonb FROM hotel.images img WHERE img.hotel_id = h.id LIMIT 1),
+        (SELECT jsonb_agg(si.url ORDER BY hi.sort_order) FROM hotel.hotel_images hi JOIN settings.images si ON si.id = hi.image_id WHERE hi.hotel_id = h.id),
         '[]'::jsonb
       ) AS images,
       COUNT(*) OVER() AS total
@@ -117,7 +117,7 @@ const getHotelDetailById = async (hotelId) => {
     h.discount_percent,
 
     COALESCE(
-      (SELECT img.url::jsonb FROM hotel.images img WHERE img.hotel_id = h.id LIMIT 1),
+      (SELECT jsonb_agg(si.url ORDER BY hi.sort_order) FROM hotel.hotel_images hi JOIN settings.images si ON si.id = hi.image_id WHERE hi.hotel_id = h.id),
       '[]'::jsonb
     ) AS images,
 
@@ -239,48 +239,6 @@ const deleteHotel = async (hotelId) => {
   }
 };
 
-const addHotelImage = async (hotelId, url) => {
-  log.info('addHotelImage: adding image', { hotelId });
-  const existing = await pool.query(
-    'SELECT id FROM hotel.images WHERE hotel_id = $1',
-    [hotelId],
-  );
-
-  if (existing.rows.length > 0) {
-    const result = await pool.query(
-      `UPDATE hotel.images
-       SET url = url || $2::jsonb
-       WHERE hotel_id = $1
-       RETURNING url`,
-      [hotelId, JSON.stringify([url])],
-    );
-    log.info('addHotelImage: appended to existing', { hotelId });
-    return result.rows[0].url;
-  }
-
-  const result = await pool.query(
-    `INSERT INTO hotel.images (hotel_id, url)
-     VALUES ($1, $2::jsonb)
-     RETURNING url`,
-    [hotelId, JSON.stringify([url])],
-  );
-  log.info('addHotelImage: created new entry', { hotelId });
-  return result.rows[0].url;
-};
-
-const deleteHotelImage = async (hotelId, imageIndex) => {
-  log.info('deleteHotelImage: removing image', { hotelId, imageIndex });
-  const result = await pool.query(
-    `UPDATE hotel.images
-     SET url = url - $2::int
-     WHERE hotel_id = $1
-     RETURNING url`,
-    [hotelId, imageIndex],
-  );
-  log.info('deleteHotelImage: done', { hotelId, imageIndex });
-  return result.rows[0] ? result.rows[0].url : null;
-};
-
 const getHotelById = async (hotelId) => {
   log.info('getHotelById: querying', { hotelId });
   const result = await pool.query(
@@ -337,8 +295,6 @@ module.exports = {
   updateHotel,
   hasActiveBookings,
   deleteHotel,
-  addHotelImage,
-  deleteHotelImage,
   getRoomsByHotelId,
   getHotelById,
 };

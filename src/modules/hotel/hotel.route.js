@@ -13,7 +13,5 @@ router.get('/:id/rooms', validate(hotelSchemas.getHotelRooms), hotelController.g
 router.get('/:id', validate(hotelSchemas.getHotelDetail), hotelController.getHotelDetail);
 router.put('/:id', authMiddleware, requireAdmin, validate(hotelSchemas.updateHotel), hotelController.updateHotel);
 router.delete('/:id', authMiddleware, requireAdmin, validate(hotelSchemas.deleteHotel), hotelController.deleteHotel);
-router.post('/:id/images', authMiddleware, requireAdmin, validate(hotelSchemas.addImage), hotelController.addImage);
-router.delete('/:id/images/:imageId', authMiddleware, requireAdmin, validate(hotelSchemas.deleteImage), hotelController.deleteImage);
 
 module.exports = router;

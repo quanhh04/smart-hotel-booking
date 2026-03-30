@@ -15,6 +15,7 @@ const reviewRoutes = require('./modules/review/review.route');
 const notificationRoutes = require('./modules/notification/notification.route');
 const adminRoutes = require('./modules/admin/admin.route');
 const cityRoutes = require('./modules/city/city.route');
+const imageRoutes = require('./modules/image/image.route');
 
 const app = express();
 
@@ -38,5 +39,6 @@ app.use('/reviews', reviewRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/admin', adminRoutes);
 app.use('/cities', cityRoutes);
+app.use('/images', imageRoutes);
 
 module.exports = app;

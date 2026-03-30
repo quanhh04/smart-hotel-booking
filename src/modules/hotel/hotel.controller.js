@@ -52,20 +52,6 @@ const deleteHotel = asyncHandler(async (req, res) => {
   return res.status(204).send();
 });
 
-const addImage = asyncHandler(async (req, res) => {
-  const hotelId = Number(req.params.id);
-  const { url } = req.body;
-  const images = await hotelService.addImage(hotelId, url);
-  return res.status(201).json({ images });
-});
-
-const deleteImage = asyncHandler(async (req, res) => {
-  const hotelId = Number(req.params.id);
-  const imageId = Number(req.params.imageId);
-  await hotelService.removeImage(hotelId, imageId);
-  return res.status(204).send();
-});
-
 const getHotelRooms = asyncHandler(async (req, res) => {
   const hotelId = Number(req.params.id);
   const { page = 1, limit = 10 } = req.query;
@@ -73,4 +59,4 @@ const getHotelRooms = asyncHandler(async (req, res) => {
   return res.status(200).json({ ...result, page: Number(page), limit: Number(limit) });
 });
 
-module.exports = { getHotels, createHotel, getHotelDetail, updateHotel, deleteHotel, addImage, deleteImage, getHotelRooms };
+module.exports = { getHotels, createHotel, getHotelDetail, updateHotel, deleteHotel, getHotelRooms };

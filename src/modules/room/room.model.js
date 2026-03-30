@@ -104,16 +104,21 @@ const getRooms = async ({ minPrice, maxPrice, guests, amenities, checkIn, checkO
       r.price_per_night,
       r.max_guests,
       r.description,
+      r.bed,
+      r.size,
       r.total_quantity,
       r.created_at,
+      h.name AS hotel_name,
+      h.address AS hotel_address,
       COALESCE(ARRAY_AGG(DISTINCT a.name) FILTER (WHERE a.name IS NOT NULL), '{}') AS amenities,
       COUNT(*) OVER() AS total_count
       ${availableSelect}
     FROM hotel.room_types r
+    JOIN hotel.hotels h ON h.id = r.hotel_id
     ${amenityJoin}
     ${bookingJoin}
     ${whereClause}
-    GROUP BY r.id
+    GROUP BY r.id, h.name, h.address
     ${havingClause}
     ORDER BY r.created_at DESC
     LIMIT ${limitParam} OFFSET ${offsetParam}

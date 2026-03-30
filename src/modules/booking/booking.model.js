@@ -193,11 +193,15 @@ const getAllBookings = async ({ status, page = 1, limit = 10 }) => {
         b.id, b.room_type_id, b.user_id, b.check_in, b.check_out,
         b.status, b.payment_method, b.created_at,
         r.name AS room_name, r.price_per_night,
-        h.name AS hotel_name,
+        h.name AS hotel_name, h.address AS hotel_address,
+        u.email AS user_email, u.display_name AS user_name,
+        p.id AS payment_id, p.amount AS payment_amount, p.status AS payment_status,
         COUNT(*) OVER() AS total
       FROM booking.bookings b
       LEFT JOIN hotel.room_types r ON r.id = b.room_type_id
       LEFT JOIN hotel.hotels h ON h.id = r.hotel_id
+      LEFT JOIN auth.users u ON u.id = b.user_id
+      LEFT JOIN booking.payments p ON p.booking_id = b.id
       ${whereClause}
       ORDER BY b.created_at DESC
       LIMIT $${limitParam} OFFSET $${offsetParam}
