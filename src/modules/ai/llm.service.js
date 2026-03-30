@@ -29,17 +29,19 @@ Bạn có các công cụ (tools) để:
 Quy tắc:
 - Khi khách hỏi về phòng/khách sạn → dùng search_rooms để tìm, KHÔNG bịa data
 - Khi khách muốn đặt phòng → dùng create_booking, KHÔNG bịa kết quả
+- QUAN TRỌNG: Kết quả search_rooms trả về room_id — đây chính là room_type_id cần dùng cho create_booking. Tự lấy room_id từ kết quả search trước đó, KHÔNG hỏi khách mã ID
 - Khi khách hỏi chi tiết khách sạn → dùng get_hotel_detail
 - Giá hiển thị dạng VND (VD: 2.200.000 ₫/đêm)
 - Trả lời tự nhiên, có thể trả lời câu hỏi chung về du lịch Việt Nam
-- Nếu thiếu thông tin để đặt phòng (ngày, loại phòng), HỎI khách trước`;
+- Nếu thiếu thông tin để đặt phòng (ngày, loại phòng), HỎI khách trước
+- KHÔNG BAO GIỜ hỏi khách về mã ID hay room_type_id — tự lấy từ kết quả tìm kiếm`;
 
 // ========== TOOL DEFINITIONS ==========
 const TOOLS = [{
   functionDeclarations: [
     {
       name: 'search_rooms',
-      description: 'Tìm kiếm phòng khách sạn theo tiêu chí. Trả về danh sách phòng phù hợp.',
+      description: 'Tìm kiếm phòng khách sạn theo tiêu chí. Trả về danh sách phòng với room_id (dùng làm room_type_id khi đặt phòng), tên phòng, khách sạn, giá, tiện ích.',
       parameters: {
         type: 'OBJECT',
         properties: {
@@ -81,8 +83,26 @@ const TOOLS = [{
   ],
 }];
 
+// ========== RATE LIMIT THROTTLE ==========
+// Gemini 2.5 Flash free: 5 RPM, 20 RPD — need spacing between requests
+let lastRequestTime = 0;
+const MIN_REQUEST_GAP_MS = 15000; // 15s gap = max 4 per minute (safe under 5 RPM limit)
+
+async function throttle() {
+  const now = Date.now();
+  const elapsed = now - lastRequestTime;
+  if (elapsed < MIN_REQUEST_GAP_MS) {
+    const wait = MIN_REQUEST_GAP_MS - elapsed;
+    log.info('LLM throttling', { waitMs: wait });
+    await new Promise(r => setTimeout(r, wait));
+  }
+  lastRequestTime = Date.now();
+}
+
 // ========== GEMINI API CALL ==========
 async function callGemini(contents, retryCount = 0) {
+  await throttle();
+
   const body = {
     systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents,
@@ -99,8 +119,8 @@ async function callGemini(contents, retryCount = 0) {
   const elapsed = Date.now() - startTime;
 
   if (res.status === 429 && retryCount < 1) {
-    log.warn('LLM rate limited (429), retrying in 2s...', { elapsed });
-    await new Promise(r => setTimeout(r, 2000));
+    log.warn('LLM rate limited (429), retrying in 15s...', { elapsed });
+    await new Promise(r => setTimeout(r, 15000));
     return callGemini(contents, retryCount + 1);
   }
 

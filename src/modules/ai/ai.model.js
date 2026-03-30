@@ -89,6 +89,7 @@ async function searchRooms(filters) {
     SELECT
       r.id AS room_id,
       r.name AS room_name,
+      r.hotel_id,
       h.name AS hotel_name,
       h.address AS hotel_address,
       r.price_per_night,
@@ -105,7 +106,7 @@ async function searchRooms(filters) {
     ${amenityJoin}
     ${bookingJoin}
     ${whereClause}
-    GROUP BY r.id, r.name, r.price_per_night, r.max_guests, r.total_quantity,
+    GROUP BY r.id, r.name, r.hotel_id, r.price_per_night, r.max_guests, r.total_quantity,
              h.name, h.address
     ${havingClause}
     ORDER BY (${scoreExpr}) DESC, r.price_per_night ASC
