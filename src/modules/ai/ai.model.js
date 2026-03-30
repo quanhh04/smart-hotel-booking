@@ -369,7 +369,7 @@ async function insertAmenityQueries(amenities, sessionId) {
  */
 async function insertRoomClick(roomTypeId, userId) {
   const result = await pool.query(
-    `INSERT INTO ai.room_clicks (room_type_id, user_id, clicked_at)
+    `INSERT INTO ai.room_clicks (room_type_id, user_id, created_at)
      VALUES ($1, $2, NOW())
      RETURNING *`,
     [roomTypeId, userId || null]
@@ -452,11 +452,11 @@ async function getTopRoomsClicked(from, to) {
   let idx = 0;
   if (from) {
     values.push(from);
-    conditions.push(`rc.clicked_at >= $${++idx}`);
+    conditions.push(`rc.created_at >= $${++idx}`);
   }
   if (to) {
     values.push(to);
-    conditions.push(`rc.clicked_at <= $${++idx}`);
+    conditions.push(`rc.created_at <= $${++idx}`);
   }
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const result = await pool.query(

@@ -3,7 +3,7 @@ const { isRequired, isString, isNumber, isPositiveInt, minLength, maxLength, min
 const createReview = {
   body: {
     booking_id: [isRequired('Mã booking'), isPositiveInt('Mã booking')],
-    rating: [isRequired('Điểm đánh giá'), isNumber('Điểm đánh giá'), minValue('Điểm đánh giá', 1), maxValue('Điểm đánh giá', 5)],
+    rating: [isRequired('Điểm đánh giá'), isNumber('Điểm đánh giá'), minValue('Điểm đánh giá', 1), maxValue('Điểm đánh giá', 10)],
     comment: [isRequired('Nội dung đánh giá'), isString('Nội dung đánh giá'), minLength('Nội dung đánh giá', 10), maxLength('Nội dung đánh giá', 1000)],
   },
 };
@@ -13,7 +13,7 @@ const updateReview = {
     id: [isRequired('ID đánh giá'), isPositiveInt('ID đánh giá')],
   },
   body: {
-    rating: [isRequired('Điểm đánh giá'), isNumber('Điểm đánh giá'), minValue('Điểm đánh giá', 1), maxValue('Điểm đánh giá', 5)],
+    rating: [isRequired('Điểm đánh giá'), isNumber('Điểm đánh giá'), minValue('Điểm đánh giá', 1), maxValue('Điểm đánh giá', 10)],
     comment: [isRequired('Nội dung đánh giá'), isString('Nội dung đánh giá'), minLength('Nội dung đánh giá', 10), maxLength('Nội dung đánh giá', 1000)],
   },
 };
