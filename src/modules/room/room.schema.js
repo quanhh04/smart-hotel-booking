@@ -9,6 +9,8 @@ const createRoom = {
     description: [isRequired('Mô tả'), isString('Mô tả'), minLength('Mô tả', 1)],
     amenities: [isRequired('Tiện nghi'), isArray('Tiện nghi')],
     total_quantity: [isRequired('Tổng số lượng'), isPositiveInt('Tổng số lượng')],
+    bed: [isString('Loại giường')],
+    size: [isString('Diện tích')],
   },
 };
 
@@ -25,12 +27,6 @@ const getRooms = {
   },
 };
 
-const getRoomDetail = {
-  params: {
-    id: [isRequired('ID phòng'), isPositiveInt('ID phòng')],
-  },
-};
-
 const updateRoom = {
   params: {
     id: [isRequired('ID phòng'), isPositiveInt('ID phòng')],
@@ -41,6 +37,8 @@ const updateRoom = {
     max_guests: [isPositiveInt('Số khách tối đa')],
     description: [isString('Mô tả'), minLength('Mô tả', 1)],
     amenities: [isArray('Tiện nghi')],
+    bed: [isString('Loại giường')],
+    size: [isString('Diện tích')],
   },
 };
 
@@ -50,4 +48,4 @@ const deleteRoom = {
   },
 };
 
-module.exports = { createRoom, getRooms, getRoomDetail, updateRoom, deleteRoom };
+module.exports = { createRoom, getRooms, updateRoom, deleteRoom };

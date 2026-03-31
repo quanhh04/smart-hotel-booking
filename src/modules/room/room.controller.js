@@ -23,21 +23,10 @@ const createRoom = asyncHandler(async (req, res) => {
   return res.status(201).json(room);
 });
 
-const getRoomDetail = asyncHandler(async (req, res) => {
-  const id = Number(req.params.id);
-  const room = await roomService.getRoomDetail(id);
-
-  if (!room) {
-    return res.status(404).json({ message: 'Không tìm thấy phòng' });
-  }
-
-  return res.status(200).json(room);
-});
-
 const updateRoom = asyncHandler(async (req, res) => {
   const roomId = Number(req.params.id);
-  const { name, price_per_night, max_guests, description, amenities } = req.body;
-  const room = await roomService.updateRoom(roomId, { name, price_per_night, max_guests, description, amenities });
+  const { name, price_per_night, max_guests, description, amenities, bed, size } = req.body;
+  const room = await roomService.updateRoom(roomId, { name, price_per_night, max_guests, description, amenities, bed, size });
   return res.status(200).json(room);
 });
 
@@ -47,4 +36,4 @@ const deleteRoom = asyncHandler(async (req, res) => {
   return res.status(204).send();
 });
 
-module.exports = { getRooms, createRoom, getRoomDetail, updateRoom, deleteRoom };
+module.exports = { getRooms, createRoom, updateRoom, deleteRoom };

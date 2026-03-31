@@ -139,6 +139,8 @@ const createRoom = async ({
   description,
   amenities,
   total_quantity,
+  bed,
+  size,
 }) => {
   log.info('createRoom: starting transaction', { hotel_id, name });
   const client = await pool.connect();
@@ -148,11 +150,11 @@ const createRoom = async ({
 
     const roomResult = await client.query(
       `
-        INSERT INTO hotel.room_types (hotel_id, name, price_per_night, max_guests, description, total_quantity)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, hotel_id, name, price_per_night, max_guests, description, total_quantity, created_at
+        INSERT INTO hotel.room_types (hotel_id, name, price_per_night, max_guests, description, total_quantity, bed, size)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, hotel_id, name, price_per_night, max_guests, description, total_quantity, bed, size, created_at
       `,
-      [hotel_id, name, price_per_night, max_guests, description, total_quantity],
+      [hotel_id, name, price_per_night, max_guests, description, total_quantity, bed || null, size || null],
     );
 
     const room = roomResult.rows[0];
@@ -226,7 +228,7 @@ const getRoomById = async (roomId) => {
   return result.rows[0] || null;
 };
 
-const updateRoom = async (roomId, { name, price_per_night, max_guests, description, amenities }) => {
+const updateRoom = async (roomId, { name, price_per_night, max_guests, description, amenities, bed, size }) => {
   log.info('updateRoom: starting transaction', { roomId });
   const client = await pool.connect();
 
@@ -252,6 +254,14 @@ const updateRoom = async (roomId, { name, price_per_night, max_guests, descripti
     if (description !== undefined) {
       fields.push('description = $' + paramIndex++);
       values.push(description);
+    }
+    if (bed !== undefined) {
+      fields.push('bed = $' + paramIndex++);
+      values.push(bed);
+    }
+    if (size !== undefined) {
+      fields.push('size = $' + paramIndex++);
+      values.push(size);
     }
 
     if (fields.length > 0) {

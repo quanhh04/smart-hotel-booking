@@ -28,13 +28,6 @@ const addRoom = async (roomData) => {
   return room;
 };
 
-const getRoomDetail = async (roomId) => {
-  log.info('getRoomDetail: fetching', { roomId });
-  const room = await roomModel.getRoomById(roomId);
-  log.info('getRoomDetail: done', { roomId, found: !!room });
-  return room;
-};
-
 const updateRoom = async (roomId, data) => {
   log.info('updateRoom: checking room exists', { roomId });
   const room = await roomModel.getRoomById(roomId);
@@ -63,4 +56,4 @@ const removeRoom = async (roomId) => {
   log.info('removeRoom: done', { roomId });
 };
 
-module.exports = { listRooms, addRoom, getRoomDetail, updateRoom, removeRoom };
+module.exports = { listRooms, addRoom, updateRoom, removeRoom };

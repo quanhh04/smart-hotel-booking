@@ -66,7 +66,6 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
       h.reviews,
       h.price_from,
       h.stars,
-      h.discount_percent,
       h.created_at,
       COALESCE(
         (SELECT jsonb_agg(si.url ORDER BY hi.sort_order) FROM hotel.hotel_images hi JOIN settings.images si ON si.id = hi.image_id WHERE hi.hotel_id = h.id),
@@ -114,7 +113,6 @@ const getHotelDetailById = async (hotelId) => {
     h.reviews,
     h.price_from,
     h.stars,
-    h.discount_percent,
 
     COALESCE(
       (SELECT jsonb_agg(si.url ORDER BY hi.sort_order) FROM hotel.hotel_images hi JOIN settings.images si ON si.id = hi.image_id WHERE hi.hotel_id = h.id),
