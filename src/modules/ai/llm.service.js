@@ -193,26 +193,20 @@ async function executeToolCall(functionCall, { userId, model }) {
 /**
  * Full Gemini-powered chat with function calling loop.
  * @param {string} userMessage
- * @param {Array} conversationHistory - [{role, content}]
+ * @param {Array} previousContents - Gemini API format contents from previous turns
  * @param {object} context - { userId, model (ai.model) }
- * @returns {{ reply: string, rooms: Array, booking: object|null }} or null if LLM unavailable
+ * @returns {{ reply: string, rooms: Array, booking: object|null, geminiContents: Array }} or null if LLM unavailable
  */
-async function chat(userMessage, conversationHistory, context) {
+async function chat(userMessage, previousContents, context) {
   if (!isEnabled()) {
     log.warn('LLM skipped: not enabled');
     return null;
   }
 
-  log.info('LLM chat starting', { messageLength: userMessage.length, historyLength: conversationHistory.length });
+  log.info('LLM chat starting', { messageLength: userMessage.length, historyLength: previousContents.length });
 
-  // Build Gemini contents from conversation history
-  const contents = [];
-  for (const msg of conversationHistory.slice(-10)) {
-    contents.push({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }],
-    });
-  }
+  // Build contents: previous Gemini contents + new user message
+  const contents = [...previousContents];
   contents.push({ role: 'user', parts: [{ text: userMessage }] });
 
   let collectedRooms = [];
@@ -229,8 +223,10 @@ async function chat(userMessage, conversationHistory, context) {
       // No tool call — extract text reply
       const textPart = responseContent.parts?.find(p => p.text);
       const reply = textPart?.text?.trim() || 'Xin lỗi, tôi không hiểu. Bạn thử hỏi lại nhé!';
+      // Thêm model response vào contents để lưu history
+      contents.push({ role: 'model', parts: [{ text: reply }] });
       log.info('LLM chat done', { rounds: round + 1, roomCount: collectedRooms.length, hasBooking: !!bookingResult });
-      return { reply, rooms: collectedRooms, booking: bookingResult };
+      return { reply, rooms: collectedRooms, booking: bookingResult, geminiContents: contents };
     }
 
     // Execute the tool
@@ -249,7 +245,7 @@ async function chat(userMessage, conversationHistory, context) {
   }
 
   log.warn('LLM chat exceeded max tool rounds');
-  return { reply: 'Xin lỗi, tôi gặp sự cố khi xử lý. Bạn thử lại nhé!', rooms: collectedRooms, booking: bookingResult };
+  return { reply: 'Xin lỗi, tôi gặp sự cố khi xử lý. Bạn thử lại nhé!', rooms: collectedRooms, booking: bookingResult, geminiContents: contents };
 }
 
 module.exports = { isEnabled, chat, callGemini };
