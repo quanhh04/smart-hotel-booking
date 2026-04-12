@@ -19,34 +19,4 @@ const getRecommendations = asyncHandler(async (req, res) => {
   return res.status(200).json(result);
 });
 
-const getTrending = asyncHandler(async (req, res) => {
-  const { days } = req.query;
-  const result = await service.getTrending(days != null ? Number(days) : undefined);
-  return res.status(200).json(result);
-});
-
-const getHistoryBased = asyncHandler(async (req, res) => {
-  const user_id = req.user.userId;
-  const result = await service.getHistoryBased(user_id);
-  return res.status(200).json(result);
-});
-
-const trackClick = asyncHandler(async (req, res) => {
-  const { room_type_id } = req.body;
-  const user_id = req.user ? req.user.userId : null;
-  const result = await service.trackClick(room_type_id, user_id);
-  return res.status(200).json(result);
-});
-
-const getStats = asyncHandler(async (req, res) => {
-  const { from, to } = req.query;
-  const result = await service.getStats(from, to);
-  return res.status(200).json(result);
-});
-
-const getStatus = asyncHandler(async (req, res) => {
-  const result = await service.getStatus();
-  return res.status(200).json(result);
-});
-
-module.exports = { chat, getRecommendations, getTrending, getHistoryBased, trackClick, getStats, getStatus };
+module.exports = { chat, getRecommendations };

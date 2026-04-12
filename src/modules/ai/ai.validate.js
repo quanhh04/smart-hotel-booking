@@ -1,7 +1,6 @@
 const { sendError } = require('../../common/middleware/validate');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
 /**
  * POST /ai/chat
@@ -45,49 +44,4 @@ const validateRecommendations = (req, res, next) => {
   next();
 };
 
-/**
- * GET /ai/trending
- * Query: { days? }
- */
-const validateTrending = (req, res, next) => {
-  const { days } = req.query;
-
-  if (days !== undefined) {
-    const d = Number(days);
-    if (isNaN(d) || d < 7 || d > 30) return sendError(res, 'Số ngày phải từ 7 đến 30');
-  }
-
-  next();
-};
-
-/**
- * POST /ai/track/click
- * Body: { room_type_id }
- */
-const validateTrackClick = (req, res, next) => {
-  const { room_type_id } = req.body;
-  if (!room_type_id) return sendError(res, 'Room type ID là bắt buộc');
-  if (!Number.isInteger(Number(room_type_id)) || Number(room_type_id) <= 0) {
-    return sendError(res, 'Room type ID phải là số nguyên dương');
-  }
-  next();
-};
-
-/**
- * GET /ai/stats
- * Query: { from?, to? }
- */
-const validateStats = (req, res, next) => {
-  const { from, to } = req.query;
-
-  if (from !== undefined && (!ISO_DATE_RE.test(from) || isNaN(Date.parse(from)))) {
-    return sendError(res, 'Ngày bắt đầu phải đúng định dạng ISO 8601');
-  }
-  if (to !== undefined && (!ISO_DATE_RE.test(to) || isNaN(Date.parse(to)))) {
-    return sendError(res, 'Ngày kết thúc phải đúng định dạng ISO 8601');
-  }
-
-  next();
-};
-
-module.exports = { validateChat, validateRecommendations, validateTrending, validateTrackClick, validateStats };
+module.exports = { validateChat, validateRecommendations };

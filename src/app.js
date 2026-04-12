@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const { loadEnvironment } = require('./config');
 const requestId = require('./common/middleware/request-id');
 
 const authRoutes = require('./modules/auth/auth.route');
