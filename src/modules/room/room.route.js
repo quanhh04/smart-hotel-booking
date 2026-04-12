@@ -2,14 +2,13 @@ const { Router } = require('express');
 const roomController = require('./room.controller');
 const authMiddleware = require('../../common/middleware/auth.middleware');
 const requireAdmin = require('../../common/middleware/require-admin');
-const validate = require('../../common/middleware/validate');
-const roomSchemas = require('./room.schema');
+const { validateGetRooms, validateCreateRoom, validateUpdateRoom, validateDeleteRoom } = require('./room.validate');
 
 const router = Router();
 
-router.get('/', validate(roomSchemas.getRooms), roomController.getRooms);
-router.post('/', authMiddleware, requireAdmin, validate(roomSchemas.createRoom), roomController.createRoom);
-router.put('/:id', authMiddleware, requireAdmin, validate(roomSchemas.updateRoom), roomController.updateRoom);
-router.delete('/:id', authMiddleware, requireAdmin, validate(roomSchemas.deleteRoom), roomController.deleteRoom);
+router.get('/', validateGetRooms, roomController.getRooms);
+router.post('/', authMiddleware, requireAdmin, validateCreateRoom, roomController.createRoom);
+router.put('/:id', authMiddleware, requireAdmin, validateUpdateRoom, roomController.updateRoom);
+router.delete('/:id', authMiddleware, requireAdmin, validateDeleteRoom, roomController.deleteRoom);
 
 module.exports = router;

@@ -1,17 +1,16 @@
 const { Router } = require('express');
 const reviewController = require('./review.controller');
 const authMiddleware = require('../../common/middleware/auth.middleware');
-const validate = require('../../common/middleware/validate');
 const requireAdmin = require('../../common/middleware/require-admin');
-const reviewSchemas = require('./review.schema');
+const { validateCreateReview, validateGetHotelReviews, validateUpdateReview, validateDeleteReview } = require('./review.validate');
 
 const router = Router();
 
-router.post('/', authMiddleware, validate(reviewSchemas.createReview), reviewController.createReview);
-router.get('/hotel/:hotelId', validate(reviewSchemas.getHotelReviews), reviewController.getHotelReviews);
+router.post('/', authMiddleware, validateCreateReview, reviewController.createReview);
+router.get('/hotel/:hotelId', validateGetHotelReviews, reviewController.getHotelReviews);
 router.get('/me', authMiddleware, reviewController.getMyReviews);
-router.put('/:id', authMiddleware, validate(reviewSchemas.updateReview), reviewController.updateReview);
-router.delete('/:id', authMiddleware, validate(reviewSchemas.deleteReview), reviewController.deleteReview);
-router.delete('/admin/:id', authMiddleware, requireAdmin, validate(reviewSchemas.deleteReview), reviewController.adminDeleteReview);
+router.put('/:id', authMiddleware, validateUpdateReview, reviewController.updateReview);
+router.delete('/:id', authMiddleware, validateDeleteReview, reviewController.deleteReview);
+router.delete('/admin/:id', authMiddleware, requireAdmin, validateDeleteReview, reviewController.adminDeleteReview);
 
 module.exports = router;
