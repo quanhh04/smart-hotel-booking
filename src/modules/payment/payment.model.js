@@ -1,7 +1,5 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
-const createLogger = require('../../common/helpers/logger');
-const log = createLogger('payment.model');
 
 /**
  * Tính số đêm giữa 2 ngày.
@@ -17,7 +15,6 @@ const calculateNights = (checkIn, checkOut) => {
  * Chỉ cho phép thanh toán booking online + status PENDING.
  */
 const processPayment = async ({ bookingId, userId }) => {
-  log.info('processPayment: starting transaction', { bookingId, userId });
   const client = await pool.connect();
 
   try {
@@ -59,8 +56,6 @@ const processPayment = async ({ bookingId, userId }) => {
     // Server tự tính amount
     const nights = calculateNights(booking.check_in, booking.check_out);
     const amount = Number(booking.price_per_night) * nights;
-    log.info('processPayment: calculated amount', { bookingId, nights, amount });
-
     const paymentResult = await client.query(
       `
         INSERT INTO booking.payments (booking_id, amount, status)
@@ -81,8 +76,6 @@ const processPayment = async ({ bookingId, userId }) => {
     );
 
     await client.query('COMMIT');
-    log.info('processPayment: done', { bookingId, paymentId: paymentResult.rows[0].id });
-
     return {
       payment: paymentResult.rows[0],
       booking: updatedBookingResult.rows[0],
@@ -90,7 +83,6 @@ const processPayment = async ({ bookingId, userId }) => {
     };
   } catch (error) {
     await client.query('ROLLBACK');
-    log.error('processPayment: failed', error);
     throw error;
   } finally {
     client.release();
@@ -98,7 +90,6 @@ const processPayment = async ({ bookingId, userId }) => {
 };
 
 const getPaymentsByUserId = async (userId) => {
-  log.info('getPaymentsByUserId: querying', { userId });
   const result = await pool.query(
     `
       SELECT
@@ -114,7 +105,6 @@ const getPaymentsByUserId = async (userId) => {
     `,
     [userId],
   );
-  log.info('getPaymentsByUserId: done', { userId, count: result.rows.length });
   return result.rows;
 };
 
@@ -123,7 +113,6 @@ const getPaymentsByUserId = async (userId) => {
  * Transaction: INSERT payment REFUNDED + UPDATE booking status → REFUNDED.
  */
 const processRefund = async (bookingId) => {
-  log.info('processRefund: starting transaction', { bookingId });
   const client = await pool.connect();
 
   try {
@@ -148,8 +137,6 @@ const processRefund = async (bookingId) => {
     if (booking.status !== 'PAID') {
       throw createError('Booking chưa đủ điều kiện hoàn tiền', 400);
     }
-
-    log.info('processRefund: inserting refund record', { bookingId, amount: booking.amount });
     const paymentResult = await client.query(
       `
         INSERT INTO booking.payments (booking_id, amount, status)
@@ -170,15 +157,12 @@ const processRefund = async (bookingId) => {
     );
 
     await client.query('COMMIT');
-    log.info('processRefund: done', { bookingId, paymentId: paymentResult.rows[0].id });
-
     return {
       payment: paymentResult.rows[0],
       booking: updatedBooking.rows[0],
     };
   } catch (error) {
     await client.query('ROLLBACK');
-    log.error('processRefund: failed', error);
     throw error;
   } finally {
     client.release();
@@ -190,7 +174,6 @@ const processRefund = async (bookingId) => {
  * Hỗ trợ filter theo status, phân trang.
  */
 const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
-  log.info('getAllPayments: querying', { status, page, limit });
   const conditions = [];
   const params = [];
   let paramIndex = 1;
@@ -225,7 +208,6 @@ const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
 
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total) : 0;
   const payments = result.rows.map(({ total: _, ...row }) => row);
-  log.info('getAllPayments: done', { total });
   return { payments, total, page, limit };
 };
 
@@ -234,7 +216,6 @@ const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
  * JOIN bookings, room_types, hotels.
  */
 const getPaymentById = async (paymentId) => {
-  log.info('getPaymentById: querying', { paymentId });
   const result = await pool.query(
     `
       SELECT
@@ -251,7 +232,6 @@ const getPaymentById = async (paymentId) => {
     `,
     [paymentId],
   );
-  log.info('getPaymentById: done', { paymentId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 

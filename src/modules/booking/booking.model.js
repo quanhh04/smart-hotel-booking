@@ -1,10 +1,7 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
-const createLogger = require('../../common/helpers/logger');
-const log = createLogger('booking.model');
 
 const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMethod }) => {
-  log.info('createBooking: starting transaction', { userId, roomTypeId });
   const client = await pool.connect();
 
   try {
@@ -34,9 +31,6 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
       `,
       [roomType.hotel_id],
     );
-
-    log.info('createBooking: checking availability', { roomTypeId, totalQuantity: roomType.total_quantity });
-
     // Đếm booking đang hoạt động trùng ngày
     const countResult = await client.query(
       `
@@ -56,8 +50,6 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
 
     // pay_at_hotel → CONFIRMED ngay, online → PENDING chờ thanh toán
     const status = paymentMethod === 'pay_at_hotel' ? 'CONFIRMED' : 'PENDING';
-
-    log.info('createBooking: inserting booking', { roomTypeId, status, paymentMethod });
     const bookingResult = await client.query(
       `
         INSERT INTO booking.bookings (room_type_id, user_id, check_in, check_out, status, payment_method)
@@ -72,8 +64,6 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
     // Tính tổng tiền để client biết
     const nights = Math.round((new Date(checkOut) - new Date(checkIn)) / (24 * 60 * 60 * 1000));
     const totalAmount = Number(roomType.price_per_night) * nights;
-
-    log.info('createBooking: done', { bookingId: bookingResult.rows[0].id, totalAmount });
     return {
       ...bookingResult.rows[0],
       total_amount: totalAmount,
@@ -83,7 +73,6 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
     };
   } catch (error) {
     await client.query('ROLLBACK');
-    log.error('createBooking: failed', error);
     throw error;
   } finally {
     client.release();
@@ -91,7 +80,6 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
 };
 
 const getBookingsByUserId = async (userId) => {
-  log.info('getBookingsByUserId: querying', { userId });
   const result = await pool.query(
     `
       SELECT
@@ -108,12 +96,10 @@ const getBookingsByUserId = async (userId) => {
     `,
     [userId],
   );
-  log.info('getBookingsByUserId: done', { userId, count: result.rows.length });
   return result.rows;
 };
 
 const cancelBooking = async ({ bookingId, userId }) => {
-  log.info('cancelBooking: checking booking', { bookingId, userId });
   const checkResult = await pool.query(
     `
       SELECT id, status, payment_method
@@ -132,8 +118,6 @@ const cancelBooking = async ({ bookingId, userId }) => {
   if (!['PENDING', 'CONFIRMED'].includes(booking.status)) {
     throw createError('Chỉ có thể hủy đặt phòng chưa thanh toán');
   }
-
-  log.info('cancelBooking: updating status to CANCELLED', { bookingId });
   const result = await pool.query(
     `
       UPDATE booking.bookings
@@ -143,12 +127,10 @@ const cancelBooking = async ({ bookingId, userId }) => {
     `,
     [bookingId, userId],
   );
-  log.info('cancelBooking: done', { bookingId });
   return result.rows[0];
 };
 
 const getBookingById = async (bookingId) => {
-  log.info('getBookingById: querying', { bookingId });
   const result = await pool.query(
     `
       SELECT
@@ -165,12 +147,10 @@ const getBookingById = async (bookingId) => {
     `,
     [bookingId],
   );
-  log.info('getBookingById: done', { bookingId, found: !!result.rows[0] });
   return result.rows[0] || null;
 };
 
 const getAllBookings = async ({ status, page = 1, limit = 10 }) => {
-  log.info('getAllBookings: querying', { status, page, limit });
   const conditions = [];
   const params = [];
   let paramIndex = 1;
@@ -211,7 +191,6 @@ const getAllBookings = async ({ status, page = 1, limit = 10 }) => {
 
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total, 10) : 0;
   const bookings = result.rows.map(({ total: _, ...row }) => row);
-  log.info('getAllBookings: done', { total });
   return { bookings, total };
 };
 

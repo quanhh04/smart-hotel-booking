@@ -1,10 +1,7 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
-const createLogger = require('../../common/helpers/logger');
-const log = createLogger('inventory.model');
 
 const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
-  log.info('updateTotalQuantity: validating', { roomTypeId, totalQuantity });
   if (totalQuantity < 0) {
     throw createError('total_quantity không được âm');
   }
@@ -25,7 +22,6 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
     }
 
     // Count active bookings for future dates
-    log.info('updateTotalQuantity: checking active bookings', { roomTypeId });
     const bookingResult = await client.query(
       `SELECT COUNT(*) AS active_count
        FROM booking.bookings
@@ -40,8 +36,6 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
     if (totalQuantity < activeCount) {
       throw createError('Không thể giảm tồn kho dưới số booking đang hoạt động', 409);
     }
-
-    log.info('updateTotalQuantity: updating quantity', { roomTypeId, activeCount, totalQuantity });
     const updateResult = await client.query(
       `UPDATE hotel.room_types
        SET total_quantity = $1
@@ -51,11 +45,9 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
     );
 
     await client.query('COMMIT');
-    log.info('updateTotalQuantity: done', { roomTypeId });
     return updateResult.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
-    log.error('updateTotalQuantity: failed', error);
     throw error;
   } finally {
     client.release();
@@ -63,7 +55,6 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
 };
 
 const getInventoryByHotelId = async ({ hotelId, checkIn, checkOut }) => {
-  log.info('getInventoryByHotelId: querying', { hotelId, checkIn, checkOut });
   let dateFilterCheckIn;
   let dateFilterCheckOut;
 
@@ -97,7 +88,6 @@ const getInventoryByHotelId = async ({ hotelId, checkIn, checkOut }) => {
      ORDER BY rt.id`,
     [hotelId, dateFilterCheckIn, dateFilterCheckOut],
   );
-  log.info('getInventoryByHotelId: done', { hotelId, count: result.rows.length });
   return result.rows;
 };
 

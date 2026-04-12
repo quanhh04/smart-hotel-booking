@@ -1,9 +1,6 @@
 const pool = require('../../config/db');
-const createLogger = require('../../common/helpers/logger');
-const log = createLogger('image.model');
 
 const createImage = async ({ url, alt, type }) => {
-  log.info('createImage', { type });
   const result = await pool.query(
     'INSERT INTO settings.images (url, alt, type) VALUES ($1, $2, $3) RETURNING *',
     [url, alt || null, type || 'hotel'],
@@ -30,7 +27,6 @@ const getImages = async ({ type, limit = 50 }) => {
 
 // Hotel-Image mapping
 const addHotelImage = async (hotelId, imageId, sortOrder = 0) => {
-  log.info('addHotelImage', { hotelId, imageId });
   await pool.query(
     'INSERT INTO hotel.hotel_images (hotel_id, image_id, sort_order) VALUES ($1, $2, $3) ON CONFLICT (hotel_id, image_id) DO UPDATE SET sort_order = $3',
     [hotelId, imageId, sortOrder],
@@ -38,7 +34,6 @@ const addHotelImage = async (hotelId, imageId, sortOrder = 0) => {
 };
 
 const removeHotelImage = async (hotelId, imageId) => {
-  log.info('removeHotelImage', { hotelId, imageId });
   await pool.query('DELETE FROM hotel.hotel_images WHERE hotel_id = $1 AND image_id = $2', [hotelId, imageId]);
 };
 

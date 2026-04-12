@@ -1,7 +1,5 @@
 const cityModel = require('./city.model');
 const { createError } = require('../../common/helpers/error');
-const createLogger = require('../../common/helpers/logger');
-const log = createLogger('city.service');
 
 const listCities = async (opts) => {
   return cityModel.getCities(opts);
@@ -14,7 +12,6 @@ const getCityDetail = async (id) => {
 };
 
 const addCity = async (data) => {
-  log.info('addCity', { name: data.name });
   return cityModel.createCity(data);
 };
 
