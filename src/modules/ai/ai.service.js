@@ -4,9 +4,9 @@ const llm = require('./llm.service.js');
 
 const log = createLogger('ai.service');
 
-// ─── Session Manager (đơn giản) ───────────────────────────────────────────────
+// ─── Session Manager ──────────────────────────────────────────────────────────
 
-const MAX_HISTORY_ENTRIES = 40; // ~10 turns với tool calls
+const MAX_HISTORY_ENTRIES = 40;
 
 /** @type {Map<string, { geminiContents: Array, messageCount: number }>} */
 const sessions = new Map();
@@ -28,7 +28,6 @@ function saveSession(sessionId, geminiContents) {
   ctx.geminiContents = geminiContents;
   ctx.messageCount++;
 
-  // Giới hạn context size
   while (ctx.geminiContents.length > MAX_HISTORY_ENTRIES) {
     ctx.geminiContents.shift();
   }
@@ -39,7 +38,7 @@ function saveSession(sessionId, geminiContents) {
 const UNAVAILABLE_REPLY = 'Xin lỗi, trợ lý AI đang bảo trì. Vui lòng thử lại sau!';
 
 async function chat(message, sessionId, userId) {
-  log.info('chat: processing', { sessionId, userId });
+  log.info('chat', { sessionId, userId });
 
   const existing = getSession(sessionId);
   const previousContents = existing ? existing.geminiContents : [];
@@ -53,17 +52,13 @@ async function chat(message, sessionId, userId) {
     const ctx = getSession(sessionId);
     return {
       intent: 'llm',
-      context: {
-        session_id: sessionId || null,
-        message_count: ctx ? ctx.messageCount : 1,
-      },
+      context: { session_id: sessionId || null, message_count: ctx ? ctx.messageCount : 1 },
       reply,
       results: rooms && rooms.length > 0 ? rooms : undefined,
       booking: booking || undefined,
     };
   }
 
-  // LLM không khả dụng
   log.warn('chat: LLM unavailable');
   return {
     intent: 'unavailable',
@@ -73,6 +68,54 @@ async function chat(message, sessionId, userId) {
 }
 
 // ─── Recommendations ──────────────────────────────────────────────────────────
+
+/**
+ * Tính điểm phù hợp cho 1 phòng dựa trên 5 tiêu chí.
+ * Mỗi tiêu chí có trọng số riêng, tổng = 1.0
+ *
+ * @param {object} room - Phòng ứng viên từ DB
+ * @param {object} criteria - { maxPrice, guests, amenities (mảng lowercase) }
+ * @param {number} maxBookingCount - Số booking cao nhất trong tất cả phòng
+ * @param {Map} bookingCounts - Map<roomId, count>
+ * @returns {number} Điểm từ 0 đến 1
+ */
+function scoreRoom(room, criteria, maxBookingCount, bookingCounts) {
+  const { maxPrice, guests, amenities } = criteria;
+  const roomAmenities = (room.amenities || []).map(a => a.toLowerCase());
+
+  // 1. Giá phù hợp (30%) — phòng càng rẻ hơn budget càng tốt
+  let priceFit = 0.15; // mặc định nếu không có budget
+  if (maxPrice != null && maxPrice > 0) {
+    const ratio = (maxPrice - room.price_per_night) / maxPrice; // 1 = rẻ nhất, 0 = đúng budget
+    priceFit = Math.max(0, Math.min(ratio, 1)) * 0.30;
+  }
+
+  // 2. Số khách phù hợp (15%) — phòng phải đủ chỗ
+  let guestFit = 0.075; // mặc định nếu không chỉ định
+  if (guests != null) {
+    if (room.max_guests < guests) {
+      guestFit = 0; // không đủ chỗ → 0 điểm
+    } else {
+      guestFit = Math.min(guests / room.max_guests, 1) * 0.15;
+    }
+  }
+
+  // 3. Tiện ích khớp (25%) — bao nhiêu % tiện ích yêu cầu có trong phòng
+  let amenityMatch = 0.125; // mặc định nếu không yêu cầu
+  if (amenities.length > 0) {
+    const matched = amenities.filter(a => roomAmenities.includes(a)).length;
+    amenityMatch = (matched / amenities.length) * 0.25;
+  }
+
+  // 4. Độ phổ biến (15%) — dựa trên số booking
+  const roomBookings = bookingCounts.get(room.room_id) || 0;
+  const popularity = (roomBookings / maxBookingCount) * 0.15;
+
+  // 5. Điểm đánh giá khách sạn (15%)
+  const reviewRating = ((room.hotel_rating || 0) / 5) * 0.15;
+
+  return priceFit + guestFit + amenityMatch + popularity + reviewRating;
+}
 
 async function getRecommendations({ guests, max_price, amenities, limit }) {
   log.info('getRecommendations', { guests, max_price, amenities, limit });
@@ -84,6 +127,7 @@ async function getRecommendations({ guests, max_price, amenities, limit }) {
     ? amenities.split(',').map(a => a.trim().toLowerCase()).filter(Boolean)
     : [];
 
+  // Lấy dữ liệu từ DB
   const [candidates, bookingCounts] = await Promise.all([
     model.getCandidateRooms({ guests: requestedGuests, max_price: requestedMaxPrice }),
     model.getBookingCounts(),
@@ -91,6 +135,7 @@ async function getRecommendations({ guests, max_price, amenities, limit }) {
 
   if (candidates.length === 0) return [];
 
+  // Tìm số booking cao nhất (dùng để normalize)
   let maxBookingCount = 0;
   for (const room of candidates) {
     const count = bookingCounts.get(room.room_id) || 0;
@@ -98,42 +143,24 @@ async function getRecommendations({ guests, max_price, amenities, limit }) {
   }
   if (maxBookingCount === 0) maxBookingCount = 1;
 
-  const scored = candidates.map(room => {
-    const roomAmenities = (room.amenities || []).map(a => a.toLowerCase());
+  // Chấm điểm từng phòng
+  const criteria = { maxPrice: requestedMaxPrice, guests: requestedGuests, amenities: requestedAmenities };
+  const scored = candidates.map(room => ({
+    room_id: room.room_id,
+    room_name: room.room_name,
+    hotel_id: room.hotel_id,
+    hotel_name: room.hotel_name,
+    hotel_address: room.hotel_address,
+    price_per_night: room.price_per_night,
+    max_guests: room.max_guests,
+    amenities: room.amenities,
+    score: Math.round(scoreRoom(room, criteria, maxBookingCount, bookingCounts) * 100) / 100,
+  }));
 
-    // Scoring 5 chiều: price(30%) + guest(15%) + amenity(25%) + popularity(15%) + rating(15%)
-    let priceFit = requestedMaxPrice != null && requestedMaxPrice > 0
-      ? Math.max(0, Math.min((requestedMaxPrice - room.price_per_night) / requestedMaxPrice, 1)) * 0.30
-      : 0.15;
-
-    let guestFit = requestedGuests != null
-      ? (room.max_guests < requestedGuests ? 0 : Math.max(0, Math.min(requestedGuests / room.max_guests, 1)) * 0.15)
-      : 0.075;
-
-    let amenityMatch = requestedAmenities.length > 0
-      ? (requestedAmenities.filter(a => roomAmenities.includes(a)).length / requestedAmenities.length) * 0.25
-      : 0.125;
-
-    const popularity = ((bookingCounts.get(room.room_id) || 0) / maxBookingCount) * 0.15;
-    const reviewRating = ((room.hotel_rating || 0) / 5) * 0.15;
-    const score = priceFit + guestFit + amenityMatch + popularity + reviewRating;
-
-    return {
-      room_id: room.room_id,
-      room_name: room.room_name,
-      hotel_id: room.hotel_id,
-      hotel_name: room.hotel_name,
-      hotel_address: room.hotel_address,
-      price_per_night: room.price_per_night,
-      max_guests: room.max_guests,
-      amenities: room.amenities,
-      score: Math.round(score * 100) / 100,
-    };
-  });
-
+  // Sắp xếp theo điểm giảm dần
   scored.sort((a, b) => b.score - a.score);
 
-  // Diversify: tối đa 2 phòng/khách sạn
+  // Đa dạng hoá: tối đa 2 phòng/khách sạn
   const hotelCount = {};
   const result = [];
   for (const room of scored) {
