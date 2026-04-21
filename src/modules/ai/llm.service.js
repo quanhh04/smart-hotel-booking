@@ -83,9 +83,9 @@ const TOOLS = [{
   ],
 }];
 
-// ── Rate Limit (Gemini free tier: 10 RPM) ────────────────────────────────────
+// ── Rate Limit (Gemini free tier: ~30 RPM cho flash-lite) ────────────────────
 let lastRequestTime = 0;
-const MIN_GAP_MS = 15000; // 15s giữa các request
+const MIN_GAP_MS = 5000; // 5s giữa các request
 
 async function throttle() {
   const wait = MIN_GAP_MS - (Date.now() - lastRequestTime);
