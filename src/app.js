@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const requestId = require('./common/middleware/request-id');
 
 const authRoutes = require('./modules/auth/auth.route');
 const hotelRoutes = require('./modules/hotel/hotel.route');
@@ -20,7 +19,6 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.use(requestId);
 app.use(morgan('dev'));
 
 app.get('/health', (req, res) => {

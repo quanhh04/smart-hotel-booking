@@ -1,5 +1,4 @@
-const { loadEnvironment } = require('./config');
-loadEnvironment();
+require('dotenv').config();
 
 require('./config/db');
 

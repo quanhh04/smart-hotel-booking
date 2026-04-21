@@ -1,5 +1,4 @@
 const pool = require('../../config/db');
-const { createError } = require('../../common/helpers/error');
 
 const getBookingForReview = async (bookingId) => {
   const result = await pool.query(
