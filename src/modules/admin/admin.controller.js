@@ -1,3 +1,12 @@
+/**
+ * admin.controller — Dashboard và báo cáo cho admin.
+ *
+ * Endpoints (mount tại /admin, đều cần requireAdmin):
+ *   GET   /admin/stats          → getStats      — Tổng số user/hotel/booking/revenue
+ *   GET   /admin/revenue        → getRevenue    — Doanh thu trong khoảng [start_date, end_date]
+ *   GET   /admin/users          → getUsers      — List users có paging
+ *   GET   /admin/top-hotels     → getTopHotels  — Top khách sạn theo rating/booking
+ */
 const adminService = require('./admin.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

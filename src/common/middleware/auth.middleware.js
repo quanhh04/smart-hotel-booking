@@ -1,5 +1,19 @@
 const jwt = require("jsonwebtoken");
 
+/**
+ * authMiddleware — Bắt buộc đăng nhập.
+ *
+ * Cách hoạt động:
+ *   1. Đọc header `Authorization: Bearer <token>`.
+ *   2. Verify chữ ký JWT bằng JWT_SECRET (env).
+ *   3. Nếu hợp lệ → gắn `req.user = decoded` và gọi next().
+ *      decoded là payload đã ký lúc login: { userId, email, role }.
+ *   4. Thiếu/không hợp lệ/hết hạn → trả 401, FE thấy 401 sẽ tự logout
+ *      (xem httpClient ở FE).
+ *
+ * Khác với `optional-auth`: middleware này CHẶN request nếu chưa login.
+ * Dùng `optional-auth` cho endpoint vừa cho khách vừa cho user.
+ */
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 

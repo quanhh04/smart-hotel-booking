@@ -1,3 +1,12 @@
+/**
+ * ai.service — Logic cho 2 tính năng AI:
+ *   1. chat()              — Trợ lý chat dùng Gemini, có duy trì lịch sử hội thoại theo session.
+ *   2. getRecommendations() — Gợi ý phòng dựa trên 5 tiêu chí có trọng số (không cần LLM).
+ *
+ * Flow của chat:
+ *   FE gửi { message, session_id } → service tìm history theo sessionId → gửi cho LLM
+ *   → LLM trả về reply + (có thể) danh sách phòng đề xuất → service lưu lại history.
+ */
 const createLogger = require('../../common/helpers/logger.js');
 const model = require('./ai.model.js');
 const llm = require('./llm.service.js');
@@ -5,6 +14,16 @@ const llm = require('./llm.service.js');
 const log = createLogger('ai.service');
 
 // ─── Session Manager ──────────────────────────────────────────────────────────
+//
+// ⚠️ CẢNH BÁO QUAN TRỌNG (giảng dạy):
+//   - sessions là Map IN-MEMORY → mọi history sẽ MẤT khi server restart.
+//   - KHÔNG hoạt động đúng khi deploy nhiều instance (mỗi instance có Map
+//     riêng → request kế tiếp routing sang instance khác sẽ mất context).
+//   - KHÔNG có cơ chế dọn session cũ → memory leak nếu chạy lâu (chỉ giới
+//     hạn bằng MAX_HISTORY_ENTRIES bên trong từng session).
+//
+// Trong production thật nên thay bằng Redis hoặc DB (bảng ai_sessions),
+// và thêm TTL (vd 1h không hoạt động → xoá).
 
 const MAX_HISTORY_ENTRIES = 40;
 
@@ -117,6 +136,21 @@ function scoreRoom(room, criteria, maxBookingCount, bookingCounts) {
   return priceFit + guestFit + amenityMatch + popularity + reviewRating;
 }
 
+/**
+ * Gợi ý phòng dựa trên thuật toán scoring (KHÔNG dùng LLM).
+ *
+ * Quy trình 4 bước:
+ *   1. Lấy danh sách phòng ứng viên từ DB (đã filter sơ theo guests + max_price).
+ *   2. Lấy thống kê số booking từng phòng → tính độ phổ biến.
+ *   3. Chấm điểm từng phòng với scoreRoom() — xem 5 tiêu chí ở đó.
+ *   4. Sắp xếp giảm dần + đa dạng hoá (mỗi khách sạn tối đa 2 phòng) → trả về top N.
+ *
+ * @param {object} params
+ * @param {number} [params.guests]     Số khách
+ * @param {number} [params.max_price]  Ngân sách tối đa / đêm
+ * @param {string} [params.amenities]  Chuỗi tiện ích phân tách bằng dấu phẩy ("wifi,pool")
+ * @param {number} [params.limit]      Số phòng muốn trả (mặc định 5, tối đa 20)
+ */
 async function getRecommendations({ guests, max_price, amenities, limit }) {
   log.info('getRecommendations', { guests, max_price, amenities, limit });
 

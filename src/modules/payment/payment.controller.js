@@ -1,3 +1,15 @@
+/**
+ * payment.controller — Thanh toán đơn đặt phòng.
+ *
+ * Endpoints (mount tại /payments):
+ *   POST   /payments              → payBooking        — Thanh toán 1 đơn (PENDING → PAID)
+ *   GET    /payments              → getPayments       — Lịch sử payment của user
+ *   POST   /payments/refund       → refund            — Admin: hoàn tiền theo booking_id
+ *   GET    /payments/admin/all    → getAllPayments    — Admin: list tất cả payment
+ *   GET    /payments/:id          → getPaymentDetail  — Admin: chi tiết payment
+ *
+ * Lưu ý: dự án này KHÔNG tích hợp gateway thật — chỉ ghi nhận PAID/REFUNDED.
+ */
 const paymentService = require('./payment.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

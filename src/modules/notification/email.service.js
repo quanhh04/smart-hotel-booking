@@ -1,4 +1,16 @@
+/**
+ * email.service — Gửi email qua SMTP (nodemailer).
+ *
+ * - Nếu có biến môi trường SMTP_HOST → dùng SMTP thật.
+ * - Nếu không → tạo account test miễn phí ở Ethereal (chỉ để dev xem preview).
+ *
+ * Mọi hàm send* đều `try/catch` và LOG ERROR — không throw, vì email là
+ * "best-effort": fail email không nên làm hỏng business flow chính.
+ */
 const nodemailer = require('nodemailer');
+const createLogger = require('../../common/helpers/logger');
+
+const log = createLogger('email.service');
 
 let transporter = null;
 
@@ -26,7 +38,7 @@ const getTransporter = async () => {
         pass: testAccount.pass,
       },
     });
-    console.log('Ethereal test account created', { user: testAccount.user });
+    log.info('Ethereal test account created', { user: testAccount.user });
   }
 
   return transporter;
@@ -55,10 +67,10 @@ const sendBookingConfirmation = async ({ to, bookingId, hotelName, roomName, che
 
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
-      console.log('Preview booking confirmation email', { bookingId, previewUrl });
+      log.info('Preview booking confirmation email', { bookingId, previewUrl });
     }
   } catch (error) {
-    console.error(`Failed to send booking confirmation email for booking #${bookingId}`, error);
+    log.error(`Failed to send booking confirmation email for booking #${bookingId}`, error);
   }
 };
 
@@ -84,10 +96,10 @@ const sendCheckInReminder = async ({ to, bookingId, hotelName, roomName, checkIn
 
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
-      console.log('Preview check-in reminder email', { bookingId, previewUrl });
+      log.info('Preview check-in reminder email', { bookingId, previewUrl });
     }
   } catch (error) {
-    console.error(`Failed to send check-in reminder email for booking #${bookingId}`, error);
+    log.error(`Failed to send check-in reminder email for booking #${bookingId}`, error);
   }
 };
 

@@ -4,6 +4,9 @@ const jwt = require('jsonwebtoken');
 const authModel = require('./auth.model');
 const { createError } = require('../../common/helpers/error');
 const emailService = require('../notification/email.service');
+const createLogger = require('../../common/helpers/logger');
+
+const log = createLogger('auth.service');
 
 const register = async (email, password) => {
   const existingUser = await authModel.findUserByEmail(email);
@@ -74,7 +77,7 @@ const forgotPassword = async (email) => {
       `,
     });
   } catch (error) {
-    console.error('forgotPassword: failed to send email', error.message);
+    log.error('forgotPassword: failed to send email', error);
   }
 };
 

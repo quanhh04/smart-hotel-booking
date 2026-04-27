@@ -39,4 +39,19 @@ const updateUserPassword = async (userId, hashedPassword) => {
   await pool.query('UPDATE auth.users SET password = $1 WHERE id = $2', [hashedPassword, userId]);
 };
 
-module.exports = { findUserByEmail, findUserById, createUser, updateUserProfile, updateUserPassword };
+// Lấy id của tất cả user (dùng để gửi system notification cho mọi người).
+const getAllUserIds = async () => {
+  const result = await pool.query('SELECT id FROM auth.users');
+  return result.rows.map((row) => row.id);
+};
+
+// Lấy id của các user là admin (dùng để gửi notification cho admin khi có review mới...).
+const getAdminIds = async () => {
+  const result = await pool.query("SELECT id FROM auth.users WHERE role = 'admin'");
+  return result.rows.map((row) => row.id);
+};
+
+module.exports = {
+  findUserByEmail, findUserById, createUser, updateUserProfile, updateUserPassword,
+  getAllUserIds, getAdminIds,
+};

@@ -1,3 +1,14 @@
+/**
+ * ai.controller — Tích hợp LLM (Gemini) + thuật toán gợi ý phòng.
+ *
+ * Endpoints (mount tại /ai):
+ *   POST  /ai/chat              → chat              — Trợ lý chat (giữ session)
+ *   GET   /ai/recommendations   → getRecommendations — Gợi ý phòng theo thuật toán scoring
+ *
+ * Lưu ý: chat() yêu cầu có biến môi trường GEMINI_API_KEY. Nếu thiếu, service
+ * sẽ trả response "trợ lý đang bảo trì". /chat dùng optional-auth: nếu user đăng
+ * nhập thì truyền userId vào để LLM có thể gợi ý cá nhân hoá hơn.
+ */
 const { asyncHandler } = require('../../common/helpers/controller');
 const service = require('./ai.service');
 

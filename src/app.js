@@ -1,3 +1,21 @@
+/**
+ * app.js — Khởi tạo Express app và "lắp ráp" toàn bộ middleware + route.
+ *
+ * Tách app.js và server.js để:
+ *   - app.js: chỉ build và export `app` → dễ import vào test (supertest).
+ *   - server.js: gọi app.listen() + nạp env + kết nối DB → là entry point thực sự.
+ *
+ * Kiến trúc tổng thể:
+ *   Request
+ *     → cors (cho phép FE gọi cross-origin)
+ *     → express.json() (parse body JSON)
+ *     → morgan (log request ra console)
+ *     → /<module> route → controller → service → model → DB
+ *     → response JSON
+ *
+ * Mỗi module (auth, hotel, booking, ...) đều có 5 file đặt cùng folder:
+ *   route.js → controller.js → service.js → model.js, kèm validate.js.
+ */
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');

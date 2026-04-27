@@ -1,3 +1,14 @@
+/**
+ * room.controller — Quản lý "loại phòng" (room types).
+ *
+ * Endpoints (mount tại /rooms):
+ *   GET    /rooms        → getRooms     — Tìm phòng (filter theo giá/khách/tiện ích/ngày)
+ *   POST   /rooms        → createRoom   — Admin: tạo loại phòng mới cho 1 khách sạn
+ *   PUT    /rooms/:id    → updateRoom   — Admin: cập nhật
+ *   DELETE /rooms/:id    → deleteRoom   — Admin: xoá
+ *
+ * Lưu ý: 1 "room" trong DB là 1 LOẠI phòng có total_quantity, không phải 1 phòng vật lý.
+ */
 const roomService = require('./room.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

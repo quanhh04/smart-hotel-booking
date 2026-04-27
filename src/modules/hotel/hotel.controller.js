@@ -1,3 +1,14 @@
+/**
+ * hotel.controller — Tìm kiếm và quản lý khách sạn.
+ *
+ * Endpoints (mount tại /hotels):
+ *   GET    /hotels             → getHotels       — Search có filter + sort + paging
+ *   GET    /hotels/:id         → getHotelDetail  — Chi tiết khách sạn
+ *   GET    /hotels/:id/rooms   → getHotelRooms   — Danh sách phòng của 1 khách sạn
+ *   POST   /hotels             → createHotel     — Admin: tạo khách sạn mới
+ *   PUT    /hotels/:id         → updateHotel     — Admin: cập nhật
+ *   DELETE /hotels/:id         → deleteHotel     — Admin: xoá (chỉ khi không có booking active)
+ */
 const hotelService = require('./hotel.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

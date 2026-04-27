@@ -1,3 +1,16 @@
+/**
+ * notification.controller — Thông báo trong app + gửi email.
+ *
+ * Endpoints (mount tại /notifications):
+ *   GET    /notifications              → getNotifications        — List có paging + đếm chưa đọc
+ *   PATCH  /notifications/:id/read     → markAsRead              — Đánh dấu 1 thông báo đã đọc
+ *   PATCH  /notifications/read-all     → markAllAsRead           — Đánh dấu tất cả đã đọc
+ *   DELETE /notifications/:id          → deleteNotification      — Xoá 1 thông báo
+ *   POST   /notifications/system       → createSystemNotification — Admin: gửi thông báo cho tất cả user
+ *
+ * Ngoài ra, service file còn export các hàm "fire-and-forget" để các module
+ * khác (booking, payment, review) gọi tạo notification — không qua HTTP.
+ */
 const notificationService = require('./notification.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

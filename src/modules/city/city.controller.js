@@ -1,3 +1,13 @@
+/**
+ * city.controller — Thành phố / điểm đến (dùng hiển thị "Khám phá VN" ở trang chủ).
+ *
+ * Endpoints (mount tại /cities):
+ *   GET    /cities         → getCities      — List có thumbnail, hotel_count, min_price
+ *   GET    /cities/:id     → getCityDetail  — Chi tiết 1 city
+ *   POST   /cities         → createCity     — Admin
+ *   PUT    /cities/:id     → updateCity     — Admin
+ *   DELETE /cities/:id     → deleteCity     — Admin
+ */
 const cityService = require('./city.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

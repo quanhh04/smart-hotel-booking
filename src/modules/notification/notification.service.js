@@ -1,7 +1,22 @@
-const pool = require('../../config/db');
+/**
+ * notification.service — Lớp business logic cho notification.
+ *
+ * Gồm 2 nhóm hàm:
+ *   1. Các hàm "chuẩn" (gọi từ controller HTTP): getUserNotifications,
+ *      markAsRead, markAllAsRead, deleteNotification, createSystemNotification.
+ *   2. Các hàm "fire-and-forget" (notify*): được các module khác
+ *      (booking, payment, review) gọi trực tiếp — LUÔN try/catch và KHÔNG
+ *      throw, vì tạo notification thất bại không được làm hỏng business flow chính.
+ *
+ * Quy ước: service chỉ gọi qua model, không đụng SQL trực tiếp.
+ */
 const notificationModel = require('./notification.model');
+const authModel = require('../auth/auth.model');
 const emailService = require('./email.service');
 const { createError } = require('../../common/helpers/error');
+const createLogger = require('../../common/helpers/logger');
+
+const log = createLogger('notification.service');
 
 const getUserNotifications = async (userId, page, limit) => {
   const { notifications, total } = await notificationModel.getByUserId(userId, page, limit);
@@ -28,8 +43,7 @@ const deleteNotification = async (notificationId, userId) => {
 };
 
 const createSystemNotification = async (title, message) => {
-  const result = await pool.query('SELECT id FROM auth.users');
-  const userIds = result.rows.map((row) => row.id);
+  const userIds = await authModel.getAllUserIds();
   if (!userIds.length) return 0;
 
   const notifications = userIds.map((userId) => ({
@@ -54,13 +68,13 @@ const notifyBookingCreated = async (booking) => {
       metadata: { booking_id: booking.id, hotel_name: hotelName, room_name: roomName, check_in: booking.check_in, check_out: booking.check_out },
     });
 
-    const userResult = await pool.query('SELECT email FROM auth.users WHERE id = $1', [booking.user_id]);
-    const userEmail = userResult.rows[0]?.email;
+    const user = await authModel.findUserById(booking.user_id);
+    const userEmail = user?.email;
     if (userEmail) {
       emailService.sendBookingConfirmation({ to: userEmail, bookingId: booking.id, hotelName, roomName, checkIn: booking.check_in, checkOut: booking.check_out });
     }
   } catch (error) {
-    console.error('notifyBookingCreated failed', error.message);
+    log.error('notifyBookingCreated failed', error);
   }
 };
 
@@ -74,7 +88,7 @@ const notifyBookingCancelled = async (booking) => {
       metadata: { booking_id: booking.id, status: 'CANCELLED' },
     });
   } catch (error) {
-    console.error('notifyBookingCancelled failed', error.message);
+    log.error('notifyBookingCancelled failed', error);
   }
 };
 
@@ -88,14 +102,14 @@ const notifyPaymentSuccess = async (payment) => {
       metadata: { payment_id: payment.payment.id, booking_id: payment.payment.booking_id, amount: payment.payment.amount },
     });
   } catch (error) {
-    console.error('notifyPaymentSuccess failed', error.message);
+    log.error('notifyPaymentSuccess failed', error);
   }
 };
 
 const notifyReviewPosted = async (review) => {
   try {
-    const adminResult = await pool.query("SELECT id FROM auth.users WHERE role = 'admin'");
-    for (const { id: adminId } of adminResult.rows) {
+    const adminIds = await authModel.getAdminIds();
+    for (const adminId of adminIds) {
       await notificationModel.createNotification({
         userId: adminId,
         type: 'REVIEW_POSTED',
@@ -105,7 +119,7 @@ const notifyReviewPosted = async (review) => {
       });
     }
   } catch (error) {
-    console.error('notifyReviewPosted failed', error.message);
+    log.error('notifyReviewPosted failed', error);
   }
 };
 

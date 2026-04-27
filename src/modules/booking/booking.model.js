@@ -1,12 +1,41 @@
+/**
+ * booking.model — Truy vấn DB cho module Booking.
+ *
+ * Đặc thù quan trọng: hàm createBooking dùng TRANSACTION + LOCK để giải quyết
+ * race condition khi 2 user đặt cùng loại phòng vào cùng ngày — đoạn này có
+ * comment chi tiết bên dưới, rất đáng đọc kỹ vì là pattern phổ biến.
+ */
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
 
+/**
+ * Tạo booking mới (với khoá để tránh race condition).
+ *
+ * Vấn đề cần giải quyết:
+ *   - 2 user A và B cùng đặt phòng X ngày 10-12/05 ở thời điểm gần như đồng thời.
+ *   - Phòng X chỉ còn 1 chỗ trống.
+ *   - Nếu KHÔNG khoá: cả A và B cùng đọc "còn 1 phòng" → cùng INSERT → over-booking.
+ *
+ * Cách giải quyết:
+ *   1. `pool.connect()` lấy 1 connection RIÊNG (không phải pool.query) để các
+ *      câu BEGIN/COMMIT cùng nằm trong 1 session.
+ *   2. `BEGIN` mở transaction.
+ *   3. `SELECT ... FOR UPDATE` trên room_types → khoá hàng đó cho tới khi
+ *      COMMIT/ROLLBACK. User B sẽ bị BLOCK ở câu này cho tới khi A xong.
+ *   4. Đếm số booking đang hoạt động trùng ngày → kiểm tra đủ chỗ không.
+ *   5. INSERT booking → COMMIT. User B sau đó mới được chạy → đếm lại thấy hết
+ *      → throw 409 thay vì over-book.
+ *   6. Mọi `throw` đều bị `catch` để ROLLBACK trước khi rethrow.
+ *   7. `client.release()` bắt buộc trong `finally` để trả connection về pool.
+ */
 const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMethod }) => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
+    // FOR UPDATE: khoá row room_type này cho đến hết transaction.
+    // 2 request cùng loại phòng sẽ bị tuần tự hoá tại đây → an toàn concurrency.
     const roomTypeResult = await client.query(
       `
         SELECT id, hotel_id, name, price_per_night, max_guests, description, total_quantity, created_at
@@ -31,7 +60,17 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
       `,
       [roomType.hotel_id],
     );
-    // Đếm booking đang hoạt động trùng ngày
+
+    // Đếm booking đang hoạt động trùng ngày.
+    //
+    // Logic overlap: 2 khoảng [a1,a2] và [b1,b2] KHÔNG trùng khi và chỉ khi
+    //   a2 <= b1  (khoảng A kết thúc trước khi B bắt đầu)
+    //   HOẶC
+    //   a1 >= b2  (khoảng A bắt đầu sau khi B kết thúc)
+    // → Hai khoảng TRÙNG = NOT (a2 <= b1 OR a1 >= b2).
+    //
+    // Áp dụng: $2 = checkIn (mới), $3 = checkOut (mới),
+    //          existing = (check_in, check_out).
     const countResult = await client.query(
       `
         SELECT COUNT(*)::int AS booked_count
@@ -48,7 +87,7 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
       throw createError('Loại phòng đã hết phòng trống cho khoảng ngày này', 409);
     }
 
-    // pay_at_hotel → CONFIRMED ngay, online → PENDING chờ thanh toán
+    // pay_at_hotel → CONFIRMED ngay (đã giữ chỗ), online → PENDING chờ thanh toán.
     const status = paymentMethod === 'pay_at_hotel' ? 'CONFIRMED' : 'PENDING';
     const bookingResult = await client.query(
       `

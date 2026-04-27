@@ -1,3 +1,17 @@
+/**
+ * auth.controller — Tầng nhận request HTTP cho module Auth.
+ *
+ * Endpoints (mount tại /auth trong app.js):
+ *   POST   /auth/register         → register         — Đăng ký user mới
+ *   POST   /auth/login            → login            — Đăng nhập, trả JWT
+ *   GET    /auth/me               → me               — Lấy thông tin user hiện tại
+ *   PUT    /auth/profile          → updateProfile    — Cập nhật display_name, phone
+ *   PUT    /auth/change-password  → changePassword   — Đổi mật khẩu (cần mật khẩu cũ)
+ *   POST   /auth/forgot-password  → forgotPassword   — Reset password, gửi email
+ *
+ * Quy ước: controller chỉ "đọc-bóc" req → gọi service → res.json(...).
+ * Mọi business logic nằm ở service. Mọi câu SQL nằm ở model.
+ */
 const authService = require('./auth.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

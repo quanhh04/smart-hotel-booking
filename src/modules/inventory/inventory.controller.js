@@ -1,3 +1,12 @@
+/**
+ * inventory.controller — Tồn kho phòng theo ngày.
+ *
+ * Endpoints (mount tại '/'  — đường dẫn dạng /room-types/... và /hotels/.../inventory):
+ *   PATCH  /room-types/:id/inventory      → updateInventory     — Admin: chỉnh total_quantity
+ *   GET    /hotels/:id/inventory          → getHotelInventory   — Đếm phòng còn trống theo khoảng ngày
+ *
+ * Phục vụ trang admin "tồn kho" + frontend kiểm tra availability trước khi đặt.
+ */
 const inventoryService = require('./inventory.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 

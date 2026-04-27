@@ -1,3 +1,14 @@
+/**
+ * review.controller — Đánh giá khách sạn của user.
+ *
+ * Endpoints (mount tại /reviews):
+ *   POST   /reviews                  → createReview        — Viết đánh giá (cần booking đã PAID/CONFIRMED)
+ *   GET    /reviews/hotel/:hotelId   → getHotelReviews     — List review công khai của 1 khách sạn
+ *   GET    /reviews/me               → getMyReviews        — Review của chính user hiện tại
+ *   PUT    /reviews/:id              → updateReview        — Sửa review (chỉ chủ review)
+ *   DELETE /reviews/:id              → deleteReview        — Xoá review (chỉ chủ review)
+ *   DELETE /reviews/admin/:id        → adminDeleteReview   — Admin xoá bất kỳ review nào
+ */
 const reviewService = require('./review.service');
 const { asyncHandler } = require('../../common/helpers/controller');
 
