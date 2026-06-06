@@ -26,6 +26,7 @@ const getTransporter = async () => {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      family: 4, // Force IPv4 (nhiều hosting không hỗ trợ IPv6 outbound)
     });
   } else {
     const testAccount = await nodemailer.createTestAccount();
