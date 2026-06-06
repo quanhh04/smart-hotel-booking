@@ -258,7 +258,7 @@ Từ ngày 15/7 đến 18/7/2026
 ### Kịch bản backup (Đà Nẵng — đã test thành công)
 
 ```
-User: Tôi muốn tìm phòng khách sạn ở Đà Nẵng cho 2 người, giá dưới 2 triệu/đêm
+User: Tôi muốn tìm phòng khách sạn ở Hà Nội cho 2 người, giá dưới 2 triệu/đêm
 User: Ngày 15/7 đến 18/7/2026
 User: Phòng đầu tiên nhìn ổn đó, cho tôi đặt phòng này nhé
 User: thanh toán tại khách sạn
