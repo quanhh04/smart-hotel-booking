@@ -200,6 +200,40 @@ smart-hotel-booking/
 
 ---
 
+## Deployment
+
+| Service | Platform | Note |
+|---------|----------|------|
+| Database | **Neon** | PostgreSQL online, free tier |
+| Backend | **Render** | Web service, auto-deploy từ Git |
+| Frontend | **Vercel** | Static hosting, auto-deploy từ Git |
+| Email (production) | **Resend** | HTTP API, hoạt động trên Render (SMTP bị chặn) |
+| Email (local dev) | **SMTP / Ethereal** | Gmail SMTP hoặc Ethereal preview |
+
+### Env trên Render (BE)
+
+```env
+DATABASE_URL=postgresql://...@neon.tech/...
+JWT_SECRET=...
+PORT=3000
+GEMINI_API_KEY=key1,key2,key3
+GEMINI_MODEL=gemini-2.5-flash-lite
+RESEND_API_KEY=re_xxxxxxxxxx
+```
+
+> Không cần SMTP_HOST trên Render — Resend dùng HTTP API nên không bị chặn port.
+
+### Env trên Vercel (FE)
+
+```env
+VITE_API_URL=https://your-backend.onrender.com
+VITE_API_PREFIX=
+VITE_CLOUDINARY_CLOUD=dpxl15qqg
+VITE_CLOUDINARY_PRESET=hotel_uploads
+```
+
+---
+
 ## Troubleshooting
 
 | Vấn đề                                    | Giải pháp |
