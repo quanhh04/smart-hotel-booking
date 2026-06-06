@@ -19,7 +19,8 @@
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "nodemailer": "^8.0.3",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "resend": "^6.12.4"
   },
   "devDependencies": {
     "fast-check": "^4.6.0",
