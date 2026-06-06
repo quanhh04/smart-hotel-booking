@@ -14,6 +14,16 @@ const log = createLogger('email.service');
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.SMTP_FROM || 'BookingVN <onboarding@resend.dev>';
 
+// Log cảnh báo khi khởi động
+if (RESEND_API_KEY) {
+  log.info('Email provider: Resend (HTTP API)');
+  log.warn('⚠️  Resend free tier: chỉ gửi được tới email chủ tài khoản. Verify domain tại resend.com/domains để gửi cho mọi người.');
+} else if (process.env.SMTP_HOST) {
+  log.info('Email provider: SMTP', { host: process.env.SMTP_HOST });
+} else {
+  log.warn('⚠️  Không có RESEND_API_KEY hoặc SMTP_HOST — email sẽ dùng Ethereal (chỉ preview, không gửi thật)');
+}
+
 // ─── Resend (HTTP API) ─────────────────────────────────────────────────────
 async function sendViaResend({ to, subject, html }) {
   const res = await fetch('https://api.resend.com/emails', {
