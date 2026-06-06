@@ -1,12 +1,5 @@
 /**
- * Logger đơn giản — không dependency.
- *
- * Cách dùng:
- *   const log = require('./logger')('auth.service');
- *   log.info('User registered', { email });
- *   log.error('Login failed', error);
- *
- * Output: [2025-01-15T10:30:00.000Z] [INFO] [auth.service] User registered | {"email":"..."}
+ * Logger đơn giản — format: [timestamp] [LEVEL] [scope] message | meta
  */
 
 function formatMeta(meta) {

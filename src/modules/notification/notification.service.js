@@ -53,7 +53,7 @@ const createSystemNotification = async (title, message) => {
   return created.length;
 };
 
-// Fire-and-forget notification helpers (không throw error nếu thất bại)
+// Fire-and-forget notification helpers
 
 const notifyBookingCreated = async (booking) => {
   try {

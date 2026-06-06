@@ -15,15 +15,8 @@ const log = createLogger('ai.service');
 
 // ─── Session Manager ──────────────────────────────────────────────────────────
 //
-// ⚠️ CẢNH BÁO QUAN TRỌNG (giảng dạy):
-//   - sessions là Map IN-MEMORY → mọi history sẽ MẤT khi server restart.
-//   - KHÔNG hoạt động đúng khi deploy nhiều instance (mỗi instance có Map
-//     riêng → request kế tiếp routing sang instance khác sẽ mất context).
-//   - KHÔNG có cơ chế dọn session cũ → memory leak nếu chạy lâu (chỉ giới
-//     hạn bằng MAX_HISTORY_ENTRIES bên trong từng session).
-//
-// Trong production thật nên thay bằng Redis hoặc DB (bảng ai_sessions),
-// và thêm TTL (vd 1h không hoạt động → xoá).
+// NOTE: sessions dùng Map in-memory → sẽ mất khi restart.
+// TODO: Chuyển sang Redis hoặc DB (bảng ai_sessions) + TTL khi deploy production.
 
 const MAX_HISTORY_ENTRIES = 40;
 
@@ -54,34 +47,45 @@ function saveSession(sessionId, geminiContents) {
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
-const UNAVAILABLE_REPLY = 'Xin lỗi, trợ lý AI đang bảo trì. Vui lòng thử lại sau!';
+const UNAVAILABLE_REPLY = 'Xin lỗi, trợ lý AI đang bận. Vui lòng thử lại sau ít giây!';
 
 async function chat(message, sessionId, userId) {
   log.info('chat', { sessionId, userId });
 
-  const existing = getSession(sessionId);
-  const previousContents = existing ? existing.geminiContents : [];
-
-  const llmResult = await llm.chat(message, previousContents, { userId, model });
-
-  if (llmResult) {
-    const { reply, rooms, booking, geminiContents } = llmResult;
-    saveSession(sessionId, geminiContents);
-
-    const ctx = getSession(sessionId);
+  if (!message || !message.trim()) {
     return {
-      intent: 'llm',
-      context: { session_id: sessionId || null, message_count: ctx ? ctx.messageCount : 1 },
-      reply,
-      results: rooms && rooms.length > 0 ? rooms : undefined,
-      booking: booking || undefined,
+      intent: 'error',
+      context: { session_id: sessionId, message_count: 0 },
+      reply: 'Vui lòng nhập nội dung tin nhắn.',
     };
   }
 
-  log.warn('chat: LLM unavailable');
+  const existing = getSession(sessionId);
+  const previousContents = existing ? existing.geminiContents : [];
+
+  try {
+    const llmResult = await llm.chat(message, previousContents, { userId, model });
+
+    if (llmResult) {
+      const { reply, rooms, booking, geminiContents } = llmResult;
+      saveSession(sessionId, geminiContents);
+
+      const ctx = getSession(sessionId);
+      return {
+        intent: 'llm',
+        context: { session_id: sessionId, message_count: ctx ? ctx.messageCount : 1 },
+        reply,
+        results: rooms && rooms.length > 0 ? rooms : undefined,
+        booking: booking || undefined,
+      };
+    }
+  } catch (err) {
+    log.error('chat failed', { error: err.message });
+  }
+
   return {
     intent: 'unavailable',
-    context: { session_id: sessionId || null, message_count: 1 },
+    context: { session_id: sessionId, message_count: existing ? existing.messageCount : 0 },
     reply: UNAVAILABLE_REPLY,
   };
 }

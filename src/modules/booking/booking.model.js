@@ -34,8 +34,7 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
   try {
     await client.query('BEGIN');
 
-    // FOR UPDATE: khoá row room_type này cho đến hết transaction.
-    // 2 request cùng loại phòng sẽ bị tuần tự hoá tại đây → an toàn concurrency.
+    // FOR UPDATE: lock row để chống race condition
     const roomTypeResult = await client.query(
       `
         SELECT id, hotel_id, name, price_per_night, max_guests, description, total_quantity, created_at
@@ -61,16 +60,7 @@ const createBooking = async ({ userId, roomTypeId, checkIn, checkOut, paymentMet
       [roomType.hotel_id],
     );
 
-    // Đếm booking đang hoạt động trùng ngày.
-    //
-    // Logic overlap: 2 khoảng [a1,a2] và [b1,b2] KHÔNG trùng khi và chỉ khi
-    //   a2 <= b1  (khoảng A kết thúc trước khi B bắt đầu)
-    //   HOẶC
-    //   a1 >= b2  (khoảng A bắt đầu sau khi B kết thúc)
-    // → Hai khoảng TRÙNG = NOT (a2 <= b1 OR a1 >= b2).
-    //
-    // Áp dụng: $2 = checkIn (mới), $3 = checkOut (mới),
-    //          existing = (check_in, check_out).
+    // Đếm booking trùng ngày (overlap check)
     const countResult = await client.query(
       `
         SELECT COUNT(*)::int AS booked_count

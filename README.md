@@ -1,458 +1,296 @@
-# Smart Hotel Booking — Backend (Express + PostgreSQL)
+# Smart Hotel Booking — Backend
 
-> Tài liệu này phục vụ **giảng dạy** — giải thích từng bước cài đặt, cách app chạy, lý do dùng từng thư viện. Đọc tuần tự là hiểu được toàn bộ.
-
----
-
-## 1. Giới thiệu
-
-Backend của hệ thống đặt phòng khách sạn, viết bằng **Express.js** và **PostgreSQL**.
-
-Tính năng chính:
-
-- Đăng ký / đăng nhập (JWT), quên mật khẩu (gửi email).
-- Quản lý khách sạn, phòng, thành phố, ảnh.
-- Đặt phòng (có **transaction + row-level lock** để chống over-booking).
-- Thanh toán (giả lập, không kết nối cổng thật).
-- Đánh giá (review) sau khi check-out.
-- Thông báo (notification) trong app + email.
-- Trợ lý AI (chat dùng Gemini, gợi ý phòng dùng thuật toán scoring).
-- Khu vực admin (CRUD toàn bộ resource).
+Express.js + PostgreSQL backend cho hệ thống đặt phòng khách sạn.
 
 ---
 
-## 2. Yêu cầu hệ thống
+## Tech Stack
+
+- **Express.js** — HTTP framework
+- **PostgreSQL** — Database (pg driver + connection pooling)
+- **JWT** — Authentication
+- **bcrypt** — Password hashing
+- **Nodemailer** — Email service
+- **Google Gemini** — AI chatbot
+
+---
+
+## Yêu cầu
 
 | Tool       | Phiên bản |
 | ---------- | --------- |
-| Node.js    | **>= 20** |
-| npm        | đi kèm Node |
-| PostgreSQL | >= 14 (cloud hoặc local) |
+| Node.js    | >= 20     |
+| PostgreSQL | >= 14     |
 
-Tuỳ chọn:
-
-- Tài khoản **Cloudinary** (nếu cần upload ảnh thật).
-- API key **Gemini** (Google AI Studio) nếu muốn bật chat AI.
-- SMTP server (Gmail / Mailtrap / Ethereal) cho email — nếu không cấu hình, code tự fallback **Ethereal** (chỉ preview).
+Optional:
+- Cloudinary (upload ảnh)
+- Gemini API key (AI chat)
+- SMTP server (email thật — nếu không có sẽ dùng Ethereal)
 
 ---
 
-## 3. Cài đặt nhanh
+## Cài đặt
 
 ```bash
-# 1. Clone & vào thư mục
 cd smart-hotel-booking
-
-# 2. Cài dependency
 npm install
-
-# 3. Tạo file .env (xem mục 4)
-cp .env.example .env   # nếu có sẵn, hoặc tạo tay theo template bên dưới
-
-# 4. Khởi tạo DB schema (xem mục 5 — đang đọc trực tiếp từ DB sẵn có)
-
-# 5. Chạy dev server (auto-reload nhờ nodemon)
+cp .env.example .env  # Sửa thông tin DB, JWT_SECRET, ...
 npm start
 ```
 
-Server sẽ lắng nghe ở `http://localhost:3000` (mặc định). Test nhanh:
-
-```bash
-curl http://localhost:3000/health
-# {"status":"ok"}
-```
+Server chạy tại `http://localhost:3000`. Health check: `GET /health`.
 
 ---
 
-## 4. Biến môi trường (.env)
+## Biến môi trường (.env)
 
 ```env
-# === DATABASE ===
-# Connection string Postgres. Ví dụ Neon/Supabase/Render/Local:
+# Database
 DATABASE_URL=postgresql://user:pass@host:5432/dbname?sslmode=require
 
-# === AUTH ===
-JWT_SECRET=<chuỗi-bí-mật-dài-tuỳ-ý>     # KHÔNG commit lên git
+# Auth
+JWT_SECRET=<chuỗi-bí-mật>
 PORT=3000
 
-# === EMAIL (SMTP) ===
-# Nếu để trống, code dùng Ethereal (test inbox ảo, có preview URL trong log).
+# Email (để trống → dùng Ethereal test)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=youremail@gmail.com
 SMTP_PASS=<app-password>
 SMTP_FROM="Smart Hotel <noreply@smarthotel.dev>"
 
-# === AI (tuỳ chọn) ===
-# Nếu thiếu, /ai/chat sẽ trả về một câu trả lời rule-based đơn giản.
-GEMINI_API_KEY=AIza...
+# AI (optional — hỗ trợ nhiều key, phân cách bằng dấu phẩy, tự rotate khi hết quota)
+GEMINI_API_KEY=AIza...key1,AIza...key2,AIza...key3
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-> ⚠️ File `.env` đã được liệt kê trong `.gitignore`. Khi onboard người mới, copy `.env.example` (nếu thiếu thì tạo từ template trên).
+---
+
+## Scripts
+
+| Lệnh          | Tác dụng                              |
+| -------------- | ------------------------------------- |
+| `npm start`    | Dev server (nodemon, auto-reload)     |
+| `npm run dev`  | Chạy trực tiếp (không auto-reload)    |
 
 ---
 
-## 5. Database
+## Kiến trúc
 
-DB là **Postgres** với 4 schema chính:
-
-| Schema         | Bảng tiêu biểu |
-| -------------- | -------------- |
-| `auth`         | `users`        |
-| `hotel`        | `cities`, `hotels`, `room_types`, `room_images` |
-| `booking`      | `bookings`, `payments` |
-| `notification` | `notifications` |
-
-Code KHÔNG có file migration — DB schema được dựng sẵn ngoài (Neon/Supabase). Nếu muốn dựng lại từ đầu:
-
-1. Tạo Postgres DB mới.
-2. Mở từng file `*.model.js` trong `src/modules/<module>` → đọc các câu `INSERT/SELECT` để suy ra cột (tên cột bám sát SQL trong code).
-3. Tạo schema + bảng tương ứng. (Khoá ngoại: `bookings.user_id → users.id`, `bookings.room_type_id → room_types.id`, …)
-
-> 💡 Cho lớp học thực hành: nên có sẵn 1 file `schema.sql` cho học viên `psql -f schema.sql`. Có thể tạo bằng cách `pg_dump --schema-only` từ DB hiện có.
-
-Khi server start, `src/config/db.js` chạy `SELECT 1` để **fail fast** nếu DB không kết nối được — nếu thấy log:
+### Request flow
 
 ```
-[ERROR] [db] PostgreSQL connection failed
+Request → app.js (cors, json, morgan)
+  → route.js (URL mapping)
+    → middleware (auth, validate)
+      → controller.js (parse req → gọi service → res.json)
+        → service.js (business logic)
+          → model.js (SQL queries)
+            → PostgreSQL
 ```
 
-→ kiểm tra lại `DATABASE_URL` trước khi xét nguyên nhân khác.
-
----
-
-## 6. Run app
-
-| Lệnh           | Tác dụng                                          |
-| -------------- | ------------------------------------------------- |
-| `npm start`    | Chạy với **nodemon** (auto-reload khi sửa code).  |
-| `npm run dev`  | Chạy trực tiếp `node src/server.js` (không reload). |
-
-Mặc định server lắng nghe `PORT` trong `.env` (fallback 3000).
-
----
-
-## 7. Kiến trúc tổng thể
-
-### 7.1. Sơ đồ luồng request
-
-```
-HTTP Request
-  │
-  ▼
-┌─────────────────────────────┐
-│ app.js                       │  cors → express.json → morgan log
-│   middleware chain           │
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│  /auth, /hotels, /bookings…  │  router gắn URL → controller
-│   (route.js)                 │
-└──────────────┬──────────────┘
-               │  (có middleware: authMiddleware / requireAdmin / validate)
-               ▼
-┌─────────────────────────────┐
-│ controller.js                │  parse req → gọi service → res.json
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ service.js                   │  business logic (rule, transaction…)
-└──────────────┬──────────────┘
-               │
-               ▼
-┌─────────────────────────────┐
-│ model.js                     │  SQL query (qua pg.Pool)
-└──────────────┬──────────────┘
-               │
-               ▼
-            PostgreSQL
-```
-
-### 7.2. Mỗi module có đúng 5 file
+### Module structure (12 modules)
 
 ```
 src/modules/<name>/
-  ├── <name>.route.js       # Express router
-  ├── <name>.controller.js  # HTTP handler (req/res)
-  ├── <name>.service.js     # Business logic
-  ├── <name>.model.js       # SQL queries
-  └── <name>.validate.js    # Validate body / query (yup / hand-written)
+├── <name>.route.js
+├── <name>.controller.js
+├── <name>.service.js
+├── <name>.model.js
+└── <name>.validate.js
 ```
 
-Cùng pattern cho 12 module: `auth`, `hotel`, `booking`, `payment`, `room`, `city`, `review`, `notification`, `admin`, `image`, `inventory`, `ai`.
+Modules: `auth`, `hotel`, `room`, `city`, `booking`, `payment`, `review`, `notification`, `inventory`, `image`, `admin`, `ai`.
 
-### 7.3. Common helpers
+### Common
 
 ```
 src/common/
-  ├── helpers/
-  │   ├── controller.js   # asyncHandler() → bọc try/catch chung
-  │   ├── error.js        # createError(message, statusCode)
-  │   └── logger.js       # createLogger(scope) → log.info/warn/error
-  └── middleware/
-      ├── auth.middleware.js   # verify JWT bắt buộc
-      ├── optional-auth.js     # verify JWT nếu có (cho /hotels được nhận diện user)
-      ├── require-admin.js     # chặn nếu role !== 'admin'
-      └── validate.js          # chạy validate.js của module
-```
-
-### 7.4. Thư viện chính & vai trò
-
-| Lib            | Vai trò |
-| -------------- | ------- |
-| `express`      | HTTP framework: định nghĩa route, middleware. |
-| `pg`           | Driver Postgres. Dùng `Pool` (connection pooling) để tái sử dụng connection thay vì connect-disconnect mỗi request → tăng performance & tránh quá tải DB. |
-| `cors`         | Bật CORS cho FE gọi từ origin khác. |
-| `morgan`       | Log request HTTP ra console (`GET /hotels 200 12ms`). |
-| `jsonwebtoken` | Tạo & verify **JWT** cho auth. |
-| `bcrypt`       | Hash password (one-way, có salt). Không thể dịch ngược. |
-| `nodemailer`   | Gửi email qua SMTP (xác nhận đặt phòng, nhắc check-in, reset password). |
-| `dotenv`       | Nạp `.env` vào `process.env`. |
-| `nodemon`      | Auto-restart server khi sửa file (chỉ dev). |
-
----
-
-## 8. Auth flow (rất quan trọng cho học viên hiểu)
-
-```
-[Đăng ký]
-  POST /auth/register {email, password}
-    → bcrypt.hash(password)              # KHÔNG bao giờ lưu plain text
-    → INSERT users(email, password, ...)
-    → jwt.sign({userId, role}, JWT_SECRET)
-    → trả về { token }
-
-[Đăng nhập]
-  POST /auth/login {email, password}
-    → SELECT user theo email
-    → bcrypt.compare(input, user.password)
-    → nếu OK: jwt.sign(...) → trả token
-
-[Gọi API có bảo vệ]
-  FE đính kèm header: Authorization: Bearer <token>
-    → authMiddleware verify token bằng JWT_SECRET
-    → gắn req.user = { userId, role }
-    → controller dùng req.user.userId
-
-[Chỉ admin]
-  Route gắn thêm requireAdmin → kiểm tra req.user.role === 'admin'
-```
-
-> Vì JWT là **stateless**, server không lưu session. Logout = FE xoá token khỏi `localStorage`. Để revoke token trước hạn cần thêm bảng blacklist (chưa có trong project này).
-
----
-
-## 9. Booking flow — concurrency (điểm vàng để giảng)
-
-`src/modules/booking/booking.model.js → createBooking()` minh hoạ pattern **transaction + `FOR UPDATE`** chống race condition:
-
-```
-                 [User A]                   [User B]
-                    │                          │
-    BEGIN ─────────┐│                          │
-                   ▼│                          │
-   SELECT … FOR UPDATE on room_types(id)       │
-                   │ → lấy được lock           │
-                   │                           │ BEGIN
-                   │                           │ SELECT … FOR UPDATE
-                   │                           │ ⏸ BỊ BLOCK ở đây
-                   │                           │   (chờ A COMMIT)
-   COUNT bookings overlap                      │
-   nếu OK → INSERT booking                     │
-   COMMIT ────────►│                           │
-                   │                           ▼ → tiếp tục
-                   │                  COUNT bookings overlap
-                   │                  → đã hết phòng → ROLLBACK + 409
-```
-
-Đoạn code có **comment chi tiết bằng tiếng Việt** giải thích tại sao dùng `pool.connect()` (không phải `pool.query`), `BEGIN/COMMIT`, công thức overlap `NOT (a2 ≤ b1 OR a1 ≥ b2)` và bắt buộc `client.release()` trong `finally`.
-
----
-
-## 10. Notification flow
-
-Module `notification` có **2 nhóm hàm**:
-
-1. **Hàm "chuẩn"** (gọi từ HTTP route): list / markRead / delete / createSystem.
-2. **Hàm fire-and-forget** (`notifyBookingCreated`, `notifyPaymentSuccess`, …): được module khác (booking, payment, review) gọi sau khi nghiệp vụ chính thành công.
-
-Quy ước **fire-and-forget**: luôn `try/catch` và **KHÔNG throw**. Nếu insert notification lỗi → chỉ log, không làm fail business flow chính (vd: booking đã tạo xong, không nên rollback chỉ vì insert notification fail).
-
-Email gửi qua `nodemailer`. Khi không có SMTP thật, code tạo tài khoản Ethereal và in `previewUrl` ra log để xem nội dung mail.
-
----
-
-## 11. AI flow
-
-`/ai/chat`:
-
-1. FE gửi `{ message, session_id }`.
-2. Service tìm history theo `sessionId` trong **Map in-memory**.
-3. Gửi history + message tới Gemini → nhận reply (có thể kèm danh sách phòng).
-4. Lưu history mới (giới hạn 40 lượt gần nhất).
-
-⚠️ **Cảnh báo cho lớp học**: dùng Map in-memory chỉ phù hợp demo:
-
-- Restart server → mất sạch history.
-- Multi-instance (k8s/load-balancer) → mỗi instance có Map riêng → request kế tiếp routing sang instance khác sẽ "quên" context.
-- Không có TTL → memory leak nếu chạy lâu.
-
-Production thực tế nên dùng **Redis** hoặc bảng DB `ai_sessions` + TTL.
-
-`/ai/recommendations`: KHÔNG dùng LLM, dùng thuật toán scoring 5 tiêu chí có trọng số:
-
-| Tiêu chí                  | Trọng số |
-| ------------------------- | -------- |
-| Phù hợp giá (price fit)   | 30%      |
-| Phù hợp số khách          | 20%      |
-| Khớp tiện ích yêu cầu     | 20%      |
-| Độ phổ biến (số booking)  | 15%      |
-| Rating của khách sạn      | 15%      |
-
-Sau khi sort, đa dạng hoá: mỗi khách sạn tối đa 2 phòng trong kết quả top N.
-
----
-
-## 12. Logging
-
-Logger custom (`src/common/helpers/logger.js`) — wrap quanh `console.*` nhưng:
-
-- Có **timestamp ISO**.
-- Có **scope** (`[auth.service]`, `[db]`, `[server]`) để dễ grep log.
-- Format chuẩn `[time] [LEVEL] [scope] message | meta`.
-
-Quy ước: **không dùng `console.error/log` trực tiếp** trong service/model. Luôn:
-
-```js
-const createLogger = require('../../common/helpers/logger');
-const log = createLogger('booking.service');
-log.info('createBooking ok', { bookingId });
-log.error('createBooking failed', err);
+├── helpers/
+│   ├── controller.js     # asyncHandler
+│   ├── error.js          # createError(message, statusCode)
+│   └── logger.js         # createLogger(scope)
+└── middleware/
+    ├── auth.middleware.js # JWT verify (bắt buộc)
+    ├── optional-auth.js  # JWT verify (nếu có)
+    ├── require-admin.js  # Chặn nếu không phải admin
+    └── validate.js       # Validate request body/query
 ```
 
 ---
 
-## 13. Tóm tắt cách tạo project tương tự từ đầu (cho fresher)
+## Database
 
-> Đây là roadmap rất cô đọng — học viên có thể làm theo trong 1–2 buổi.
+4 schema chính:
 
-```bash
-# 1. Init dự án
-mkdir my-backend && cd my-backend
-npm init -y
-
-# 2. Cài dependency cốt lõi
-npm i express pg cors morgan jsonwebtoken bcrypt dotenv nodemailer
-npm i -D nodemon
-
-# 3. Cấu trúc thư mục
-mkdir -p src/{config,common/{helpers,middleware},modules/auth}
-```
-
-**Bước 1 — `src/config/db.js`**: tạo `pg.Pool` từ `DATABASE_URL`, ping `SELECT 1`.
-
-**Bước 2 — `src/app.js`**: tạo `express()`, gắn `cors`, `express.json`, `morgan`, route `/health`. **Export** `app` (chưa listen).
-
-**Bước 3 — `src/server.js`**: nạp `dotenv`, require `./config/db`, require `./app`, gọi `app.listen(PORT)`. Đây là entry point. Tách app/server giúp test bằng supertest mà không phải mở port thật.
-
-**Bước 4 — Module đầu tiên `auth`** (đi đủ 5 file):
-
-- `auth.model.js`: hàm `findUserByEmail`, `createUser` (dùng `pool.query`).
-- `auth.service.js`: `register` → `bcrypt.hash` → model, `login` → `bcrypt.compare` → `jwt.sign`.
-- `auth.controller.js`: parse `req.body`, gọi service, `res.json(...)`. Bọc bằng `asyncHandler`.
-- `auth.validate.js`: kiểm tra email/password format, throw `createError(400)` nếu sai.
-- `auth.route.js`: `router.post('/register', validate, controller.register)`.
-
-**Bước 5 — `auth.middleware.js`**: lấy `Authorization: Bearer …`, `jwt.verify`, gắn `req.user`. Áp dụng cho route cần đăng nhập.
-
-**Bước 6 — Mở rộng**: lặp lại pattern 5-file cho từng resource (`hotel`, `booking`, …). Mỗi khi cần feature phức tạp (transaction, gửi email, AI…), tách thành function riêng trong service và **comment rõ tại sao**.
-
-**Bước 7 — Helper chung**: tạo `asyncHandler` (bọc handler async để bắt error vào next), `createError(msg, status)`, `logger`. Dùng nhất quán.
-
-**Bước 8 — Error middleware**: cuối `app.js` thêm `app.use((err, req, res, next) => res.status(err.statusCode || 500).json({ message: err.message }))`. (Project hiện tại đặt trong từng asyncHandler.)
+| Schema         | Bảng                                          |
+| -------------- | --------------------------------------------- |
+| `auth`         | `users`                                       |
+| `hotel`        | `cities`, `hotels`, `room_types`, `room_images` |
+| `booking`      | `bookings`, `payments`                        |
+| `notification` | `notifications`                               |
 
 ---
 
-## 14. Tham khảo nhanh — endpoint chính
+## Tính năng chính
 
-| Method | Path                             | Auth      | Mô tả |
-| ------ | -------------------------------- | --------- | ----- |
-| GET    | `/health`                        | —         | Health check |
-| POST   | `/auth/register`                 | —         | Đăng ký |
-| POST   | `/auth/login`                    | —         | Đăng nhập, trả token |
-| GET    | `/auth/me`                       | user      | User hiện tại |
-| POST   | `/auth/forgot-password`          | —         | Gửi mail reset |
-| GET    | `/hotels`                        | optional  | List + filter |
-| GET    | `/hotels/:id`                    | —         | Chi tiết |
-| GET    | `/cities`                        | —         | Danh sách city |
-| GET    | `/rooms/:hotelId`                | —         | Phòng trong khách sạn |
-| POST   | `/bookings`                      | user      | Tạo booking (transaction) |
-| GET    | `/bookings/me`                   | user      | Booking của tôi |
-| POST   | `/payments`                      | user      | Thanh toán booking |
-| POST   | `/reviews`                       | user      | Tạo review |
-| GET    | `/notifications`                 | user      | Notification của tôi |
-| POST   | `/ai/chat`                       | optional  | Chat với Gemini |
-| GET    | `/ai/recommendations`            | —         | Gợi ý phòng |
-| `*`    | `/admin/*`                       | admin     | CRUD toàn bộ resource |
-
-> Endpoint đầy đủ xem trong `src/modules/<name>/<name>.route.js`.
+- **Auth**: Register, login (JWT), forgot password (email reset)
+- **Hotels**: CRUD + filter, search, sort
+- **Booking**: Transaction + row-level lock (FOR UPDATE) chống over-booking
+- **Payment**: Giả lập thanh toán, refund
+- **Review**: CRUD, tính rating trung bình
+- **Notification**: In-app + email (fire-and-forget)
+- **AI Chat**: Gemini integration, session-based, tool calling
+- **AI Recommendations**: Scoring algorithm (price fit, guest fit, amenities, popularity, rating)
+- **Admin**: Full CRUD cho mọi resource
 
 ---
 
-## 15. Troubleshooting nhanh
+## API Endpoints
 
-| Triệu chứng                                          | Cách kiểm tra |
-| ---------------------------------------------------- | ------------- |
-| `[ERROR] [db] PostgreSQL connection failed`          | Sai `DATABASE_URL` / DB không bật / sai SSL config. |
-| `EADDRINUSE :::3000`                                 | Đã có process khác chiếm 3000. Đổi `PORT` hoặc kill process. |
-| `JsonWebTokenError: invalid signature`               | `JWT_SECRET` lúc tạo token khác lúc verify (vd đổi `.env` mà không restart). |
-| Email không gửi nhưng log có `previewUrl`            | Đang dùng Ethereal (do thiếu SMTP_*). Mở URL để xem mail test. |
-| `LLM disabled: GEMINI_API_KEY not set`               | Không sao, AI chat sẽ fallback rule-based. Đặt key nếu muốn full feature. |
-| Booking báo 409 dù còn phòng                         | Race condition đã được lock đúng — chạy lại request. Hoặc kiểm tra `bookings.status` đã filter đúng chưa. |
+| Method | Path                    | Auth     | Mô tả              |
+| ------ | ----------------------- | -------- | ------------------- |
+| GET    | `/health`               | —        | Health check        |
+| POST   | `/auth/register`        | —        | Đăng ký             |
+| POST   | `/auth/login`           | —        | Đăng nhập           |
+| GET    | `/auth/me`              | user     | User hiện tại       |
+| POST   | `/auth/forgot-password` | —        | Reset password      |
+| GET    | `/hotels`               | optional | List + filter       |
+| GET    | `/hotels/:id`           | —        | Chi tiết            |
+| GET    | `/cities`               | —        | Danh sách city      |
+| POST   | `/bookings`             | user     | Tạo booking         |
+| GET    | `/bookings`             | user     | Booking của tôi     |
+| POST   | `/payments/pay`         | user     | Thanh toán          |
+| POST   | `/reviews`              | user     | Tạo review          |
+| GET    | `/notifications`        | user     | Notifications       |
+| POST   | `/ai/chat`              | optional | Chat với AI         |
+| GET    | `/ai/recommendations`   | —        | Gợi ý phòng        |
+| `*`    | `/admin/*`              | admin    | CRUD toàn bộ        |
 
 ---
 
-## 16. Cấu trúc thư mục đầy đủ
+## Cấu trúc thư mục
 
 ```
 smart-hotel-booking/
-├── .env                       # secrets (không commit)
-├── .gitignore
+├── .env
 ├── package.json
-├── README.md                  # ← file này
 └── src/
-    ├── app.js                 # build & export Express app
-    ├── server.js              # entry: load env + DB + listen
+    ├── app.js
+    ├── server.js
     ├── config/
-    │   └── db.js              # pg.Pool + SSL + fail-fast ping
+    │   └── db.js
     ├── common/
     │   ├── helpers/
-    │   │   ├── controller.js  # asyncHandler
-    │   │   ├── error.js       # createError
-    │   │   └── logger.js      # createLogger(scope)
     │   └── middleware/
-    │       ├── auth.middleware.js
-    │       ├── optional-auth.js
-    │       ├── require-admin.js
-    │       └── validate.js
     └── modules/
-        ├── auth/         (route + controller + service + model + validate)
+        ├── auth/
         ├── hotel/
         ├── room/
         ├── city/
         ├── booking/
         ├── payment/
         ├── review/
-        ├── notification/  (+ email.service.js)
+        ├── notification/
         ├── inventory/
         ├── image/
         ├── admin/
-        └── ai/            (+ llm.service.js)
+        └── ai/
 ```
 
 ---
 
-**Chúc giảng dạy vui vẻ!** Mọi file đã có doc block tiếng Việt ở đầu — học viên có thể mở từng file đọc tuần tự là hiểu.
+## Troubleshooting
+
+| Vấn đề                                    | Giải pháp |
+| ----------------------------------------- | --------- |
+| `PostgreSQL connection failed`            | Kiểm tra `DATABASE_URL` |
+| `EADDRINUSE :::3000`                      | Port đang bị chiếm, đổi `PORT` |
+| `JsonWebTokenError: invalid signature`    | `JWT_SECRET` không khớp, restart server |
+| Email không gửi, có `previewUrl` trong log | Đang dùng Ethereal (thiếu SMTP config) |
+| `LLM disabled: GEMINI_API_KEY not set`    | AI chat sẽ dùng rule-based fallback |
+| Booking 409 conflict                      | Phòng đã hết — concurrent lock hoạt động đúng |
+
+---
+
+## Demo — Kịch bản đặt phòng qua AI Chatbot (Happy Case)
+
+> Tính năng nổi bật: User chat bằng ngôn ngữ tự nhiên → AI tự tìm phòng + đặt phòng.
+
+### Chuẩn bị trước khi demo
+
+1. Backend đang chạy (`npm start`)
+2. Frontend đang chạy (`npm run dev`)
+3. **Đăng nhập** vào 1 tài khoản user (bắt buộc — nếu chưa login sẽ không đặt được)
+4. Mở chatbot bằng cách bấm nút tròn góc phải dưới màn hình
+
+### Kịch bản chat (gõ lần lượt)
+
+**Bước 1 — Nêu nhu cầu:**
+```
+Tôi muốn đặt phòng khách sạn ở Hà Nội cho 2 người, khoảng 2-3 triệu/đêm
+```
+→ Bot sẽ trả danh sách phòng phù hợp (hiển thị dạng card có tên, giá, số khách).
+
+**Bước 2 — Chọn phòng:**
+```
+Cho tôi đặt phòng đầu tiên
+```
+→ Bot sẽ hỏi ngày nhận phòng và trả phòng.
+
+**Bước 3 — Cung cấp ngày:**
+```
+Từ ngày 15/7 đến 18/7/2026
+```
+→ Bot xác nhận lại: tên phòng, số đêm, tổng giá, và hỏi có chắc muốn đặt không.
+
+**Bước 4 — Xác nhận đặt phòng:**
+```
+Đặt luôn, thanh toán tại khách sạn
+```
+→ Bot tạo booking thành công → hiện card xanh "Đặt phòng thành công — Mã #..."
+→ Bot gợi ý thêm địa điểm ăn uống + vui chơi gần khách sạn / tại Hà Nội.
+
+**Bước 5 — Xác minh (tuỳ chọn):**
+- Bấm vào card "Xem lịch sử đặt phòng →" để chứng minh booking đã tạo thật trong hệ thống.
+- Hoặc vào `/me/bookings` kiểm tra đơn mới.
+
+### Kịch bản backup (Đà Nẵng — đã test thành công)
+
+```
+User: Tôi muốn tìm phòng khách sạn ở Đà Nẵng cho 2 người, giá dưới 2 triệu/đêm
+User: Ngày 15/7 đến 18/7/2026
+User: Phòng đầu tiên nhìn ổn đó, cho tôi đặt phòng này nhé
+User: thanh toán tại khách sạn
+→ Đặt phòng thành công ✅
+```
+
+### Lưu ý khi demo
+
+- Nói **tự nhiên**, không cần format cứng — AI hiểu tiếng Việt thông thường.
+- Nếu bot hỏi thêm thông tin → trả lời bình thường, nó nhớ context.
+- Thời gian phản hồi ~3-8s (do gọi Gemini API). Nếu chậm hơn: "Hệ thống đang xử lý qua AI".
+- Nếu gặp lỗi → bấm "Thử lại" hoặc gõ lại — hệ thống tự rotate API key.
+- Sau khi đặt phòng thành công, bot sẽ **tự động gợi ý** địa điểm ăn uống + tham quan gần khách sạn.
+
+### Seed data Hà Nội
+
+Để có dữ liệu khách sạn Hà Nội cho demo, chạy:
+
+```bash
+psql "DATABASE_URL" -f seed-hanoi.sql
+```
+
+Bao gồm: 12 khách sạn (2-5 sao), 28 loại phòng, đầy đủ amenities. Giá từ 200k → 25 triệu/đêm.
+
+### Luồng kỹ thuật phía sau
+
+```
+User nhắn tin
+  → FE: POST /api/ai/chat { message, session_id }
+  → BE: ai.service → llm.service → Gemini API
+  → Gemini quyết định gọi tool: search_rooms / create_booking
+  → BE thực thi tool (query DB / tạo booking với transaction lock)
+  → Gemini format câu trả lời
+  → FE hiển thị reply + room cards / booking success card
+```

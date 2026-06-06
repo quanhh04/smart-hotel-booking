@@ -11,14 +11,31 @@ const createLogger = require('../../common/helpers/logger');
 const log = createLogger('llm.service');
 
 // ── Config ──────────────────────────────────────────────────────────────────
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GEMINI_KEYS = (process.env.GEMINI_API_KEY || '')
+  .split(',')
+  .map(k => k.trim())
+  .filter(Boolean);
+
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-function isEnabled() { return !!GEMINI_API_KEY; }
+let currentKeyIndex = 0;
 
-if (GEMINI_API_KEY) {
-  log.info('LLM enabled', { model: GEMINI_MODEL });
+function getGeminiUrl() {
+  const key = GEMINI_KEYS[currentKeyIndex] || '';
+  return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
+}
+
+function rotateKey() {
+  if (GEMINI_KEYS.length <= 1) return false;
+  currentKeyIndex = (currentKeyIndex + 1) % GEMINI_KEYS.length;
+  log.info('Rotated to API key', { index: currentKeyIndex });
+  return true;
+}
+
+function isEnabled() { return GEMINI_KEYS.length > 0; }
+
+if (GEMINI_KEYS.length > 0) {
+  log.info('LLM enabled', { model: GEMINI_MODEL, keyCount: GEMINI_KEYS.length });
 } else {
   log.warn('LLM disabled: GEMINI_API_KEY not set');
 }
@@ -36,7 +53,11 @@ QUY TẮC:
 - KHÔNG hỏi khách về mã ID. Tự lấy từ kết quả search_rooms.
 - KHÔNG bịa data — chỉ dùng data từ kết quả tools.
 - Nếu thiếu ngày check-in/check-out → HỎI khách trước.
-- Giá hiển thị dạng VND (VD: 2.200.000 ₫/đêm).`;
+- Giá hiển thị dạng VND (VD: 2.200.000 ₫/đêm).
+- Sau khi đặt phòng THÀNH CÔNG → LUÔN gợi ý thêm:
+  + 2-3 địa điểm ăn uống nổi tiếng gần khách sạn
+  + 2-3 địa điểm vui chơi / tham quan nên ghé khi tới thành phố đó
+  + Format gợi ý ngắn gọn, có emoji cho sinh động.`;
 
 // ── Tool Definitions (Gemini Function Calling format) ───────────────────────
 const TOOLS = [{
@@ -83,39 +104,67 @@ const TOOLS = [{
   ],
 }];
 
-// ── Rate Limit (Gemini free tier: ~30 RPM cho flash-lite) ────────────────────
-let lastRequestTime = 0;
-const MIN_GAP_MS = 5000; // 5s giữa các request
+// ── Rate Limit ────────────────────────────────────────────────────────────────
+const MIN_GAP_MS = 2000; // 2s giữa các request cùng key
+const keyLastUsed = new Map(); // key index → timestamp
 
 async function throttle() {
-  const wait = MIN_GAP_MS - (Date.now() - lastRequestTime);
+  const lastUsed = keyLastUsed.get(currentKeyIndex) || 0;
+  const wait = MIN_GAP_MS - (Date.now() - lastUsed);
   if (wait > 0) {
-    log.info('Throttling', { waitMs: wait });
     await new Promise(r => setTimeout(r, wait));
   }
-  lastRequestTime = Date.now();
+  keyLastUsed.set(currentKeyIndex, Date.now());
 }
 
 // ── Gọi Gemini API ──────────────────────────────────────────────────────────
 async function callGemini(contents, retryCount = 0) {
   await throttle();
 
-  const res = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents,
-      tools: TOOLS,
-      generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
-    }),
-  });
+  let res;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-  // Retry 1 lần nếu bị rate limit
-  if (res.status === 429 && retryCount < 1) {
-    log.warn('Rate limited (429), retrying...');
-    await new Promise(r => setTimeout(r, 15000));
-    return callGemini(contents, retryCount + 1);
+    res = await fetch(getGeminiUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents,
+        tools: TOOLS,
+        generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
+      }),
+    });
+
+    clearTimeout(timeout);
+  } catch (err) {
+    const isTimeout = err.name === 'AbortError';
+    log.error('Gemini request failed', { error: isTimeout ? 'timeout (30s)' : err.message });
+    // Network/timeout error → thử key khác
+    if (retryCount < 2 && rotateKey()) {
+      await new Promise(r => setTimeout(r, 1000));
+      return callGemini(contents, retryCount + 1);
+    }
+    return null;
+  }
+
+  // Rate limit hoặc quota hết → rotate key
+  if ((res.status === 429 || res.status === 403) && retryCount < GEMINI_KEYS.length) {
+    const rotated = rotateKey();
+    if (rotated) {
+      log.warn('Key exhausted, trying next key', { status: res.status, keyIndex: currentKeyIndex });
+      await new Promise(r => setTimeout(r, 1000));
+      return callGemini(contents, retryCount + 1);
+    }
+    // Chỉ có 1 key → chờ lâu hơn rồi retry 1 lần
+    if (retryCount === 0) {
+      log.warn('Single key exhausted, waiting 10s...');
+      await new Promise(r => setTimeout(r, 10000));
+      return callGemini(contents, retryCount + 1);
+    }
+    return null;
   }
 
   if (!res.ok) {
@@ -154,16 +203,23 @@ async function executeToolCall(functionCall, { userId, model }) {
     }
 
     if (name === 'create_booking') {
-      if (!userId) return { error: 'Khách chưa đăng nhập.' };
+      if (!userId) return { error: 'Bạn cần đăng nhập để đặt phòng.' };
       const bookingService = require('../booking/booking.service');
-      const booking = await bookingService.createBooking({
-        userId,
-        roomTypeId: args.room_type_id,
-        checkIn: args.check_in,
-        checkOut: args.check_out,
-        paymentMethod: args.payment_method || 'pay_at_hotel',
-      });
-      return { booking: { id: booking.id, status: booking.status } };
+      try {
+        const booking = await bookingService.createBooking({
+          userId,
+          roomTypeId: args.room_type_id,
+          checkIn: args.check_in,
+          checkOut: args.check_out,
+          paymentMethod: args.payment_method || 'pay_at_hotel',
+        });
+        return { booking: { id: booking.id, status: booking.status } };
+      } catch (bookingErr) {
+        const safeMsg = bookingErr.status && bookingErr.status < 500
+          ? bookingErr.message
+          : 'Không thể đặt phòng lúc này. Vui lòng thử lại sau.';
+        return { error: safeMsg };
+      }
     }
 
     return { error: `Unknown tool: ${name}` };

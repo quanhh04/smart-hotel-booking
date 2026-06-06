@@ -1,13 +1,5 @@
 /**
- * Bọc async controller để tự động bắt lỗi.
- * Nếu controller throw error có .status → trả về status đó.
- * Nếu không có .status → trả 500 "Lỗi hệ thống".
- *
- * Cách dùng:
- *   const getHotels = asyncHandler(async (req, res) => {
- *     const hotels = await hotelService.listHotels();
- *     res.json(hotels);
- *   });
+ * Bọc async controller để tự động bắt lỗi và trả response phù hợp.
  */
 const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch((error) => {
