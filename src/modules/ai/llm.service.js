@@ -57,7 +57,9 @@ QUY TẮC:
 - Sau khi đặt phòng THÀNH CÔNG → LUÔN gợi ý thêm:
   + 2-3 địa điểm ăn uống nổi tiếng gần khách sạn
   + 2-3 địa điểm vui chơi / tham quan nên ghé khi tới thành phố đó
-  + Format gợi ý ngắn gọn, có emoji cho sinh động.`;
+  + Format gợi ý ngắn gọn, có emoji cho sinh động.
+  + Cuối cùng HỎI khách: "Bạn đã có chuyến bay chưa? Cần đặt xe đưa đón sân bay hoặc thuê xe trong mấy ngày không?"
+  + Nếu khách hỏi về đặt xe/chuyến bay → trả lời: "Tính năng đặt xe và chuyến bay đang được phát triển, sẽ sớm có mặt trên BookingVN! Hiện tại bạn có thể tham khảo các dịch vụ bên ngoài."`;
 
 // ── Tool Definitions (Gemini Function Calling format) ───────────────────────
 const TOOLS = [{
@@ -105,7 +107,7 @@ const TOOLS = [{
 }];
 
 // ── Rate Limit ────────────────────────────────────────────────────────────────
-const MIN_GAP_MS = 2000; // 2s giữa các request cùng key
+const MIN_GAP_MS = 1000; // 1s giữa các request cùng key (8 key = ~8 RPM/key)
 const keyLastUsed = new Map(); // key index → timestamp
 
 async function throttle() {
@@ -251,6 +253,16 @@ async function chat(userMessage, previousContents, context) {
   // Vòng lặp tool calling: Gemini có thể gọi tool nhiều lần trước khi trả lời text
   for (let round = 0; round < 3; round++) {
     const response = await callGemini(contents);
+
+    // Nếu Gemini fail nhưng đã có booking → trả kết quả luôn, không cần Gemini format
+    if (!response && bookingResult) {
+      return {
+        reply: 'Đặt phòng thành công! Chúc bạn có chuyến đi vui vẻ 🎉',
+        rooms: collectedRooms,
+        booking: bookingResult,
+        geminiContents: contents,
+      };
+    }
     if (!response) return null;
 
     // Gemini trả text → xong
