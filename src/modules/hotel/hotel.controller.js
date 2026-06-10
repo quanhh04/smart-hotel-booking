@@ -18,13 +18,14 @@ const getHotels = asyncHandler(async (req, res) => {
     min_price: minPrice,
     max_price: maxPrice,
     stars,
+    min_rating: minRating,
     sort_by: sortBy,
     sort_order: sortOrder,
     page,
     limit,
   } = req.query;
 
-  const result = await hotelService.listHotels({ keyword, minPrice, maxPrice, stars, sortBy, sortOrder, page, limit });
+  const result = await hotelService.listHotels({ keyword, minPrice, maxPrice, stars, minRating, sortBy, sortOrder, page, limit });
   return res.status(200).json({
     hotels: result.hotels,
     total: result.total,

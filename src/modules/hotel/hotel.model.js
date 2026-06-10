@@ -6,7 +6,7 @@ const ALLOWED_SORT_COLUMNS = ['rating', 'price_from', 'created_at'];
  * Tìm kiếm khách sạn với bộ lọc động.
  * Hỗ trợ: keyword, giá, số sao, sắp xếp, phân trang.
  */
-const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOrder, page, limit }) => {
+const searchHotels = async ({ keyword, minPrice, maxPrice, stars, minRating, sortBy, sortOrder, page, limit }) => {
   const filters = [];
   const values = [];
   let idx = 0;
@@ -25,8 +25,19 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, sortBy, sortOr
     filters.push(`h.price_from <= $${++idx}`);
   }
   if (stars !== undefined) {
-    values.push(Number(stars));
-    filters.push(`h.stars = $${++idx}`);
+    // Hỗ trợ multi-value: "4,5" → IN (4, 5)
+    const starValues = String(stars).split(',').map(s => Number(s.trim())).filter(Number.isInteger);
+    if (starValues.length === 1) {
+      values.push(starValues[0]);
+      filters.push(`h.stars = $${++idx}`);
+    } else if (starValues.length > 1) {
+      values.push(starValues);
+      filters.push(`h.stars = ANY($${++idx})`);
+    }
+  }
+  if (minRating !== undefined) {
+    values.push(Number(minRating));
+    filters.push(`h.rating >= $${++idx}`);
   }
 
   const where = filters.length ? 'WHERE ' + filters.join(' AND ') : '';

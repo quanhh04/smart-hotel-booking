@@ -32,6 +32,7 @@ const notificationRoutes = require('./modules/notification/notification.route');
 const adminRoutes = require('./modules/admin/admin.route');
 const cityRoutes = require('./modules/city/city.route');
 const imageRoutes = require('./modules/image/image.route');
+const nearbyServiceRoutes = require('./modules/hotel/nearby-service.route');
 
 const app = express();
 
@@ -55,5 +56,6 @@ app.use('/notifications', notificationRoutes);
 app.use('/admin', adminRoutes);
 app.use('/cities', cityRoutes);
 app.use('/images', imageRoutes);
+app.use('/nearby-services', nearbyServiceRoutes);
 
 module.exports = app;

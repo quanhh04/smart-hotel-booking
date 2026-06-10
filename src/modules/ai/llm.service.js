@@ -47,6 +47,7 @@ Bạn có các công cụ (tools) để:
 1. search_rooms: Tìm phòng khách sạn theo tiêu chí
 2. get_hotel_detail: Xem chi tiết khách sạn theo ID
 3. create_booking: Đặt phòng cho khách
+4. get_nearby_services: Tìm dịch vụ/địa điểm lân cận khách sạn
 
 QUY TẮC:
 - LUÔN gọi search_rooms TRƯỚC khi đặt phòng để lấy room_id.
@@ -54,12 +55,15 @@ QUY TẮC:
 - KHÔNG bịa data — chỉ dùng data từ kết quả tools.
 - Nếu thiếu ngày check-in/check-out → HỎI khách trước.
 - Giá hiển thị dạng VND (VD: 2.200.000 ₫/đêm).
-- Sau khi đặt phòng THÀNH CÔNG → LUÔN gợi ý thêm:
-  + 2-3 địa điểm ăn uống nổi tiếng gần khách sạn
-  + 2-3 địa điểm vui chơi / tham quan nên ghé khi tới thành phố đó
-  + Format gợi ý ngắn gọn, có emoji cho sinh động.
-  + Cuối cùng HỎI khách: "Bạn đã có chuyến bay chưa? Cần đặt xe đưa đón sân bay hoặc thuê xe trong mấy ngày không?"
-  + Nếu khách hỏi về đặt xe/chuyến bay → trả lời: "Tính năng đặt xe và chuyến bay đang được phát triển, sẽ sớm có mặt trên BookingVN! Hiện tại bạn có thể tham khảo các dịch vụ bên ngoài."`;
+- Sau khi đặt phòng THÀNH CÔNG → gọi get_nearby_services để lấy gợi ý thực tế rồi trình bày cho khách.
+- Khi khách hỏi về ĂN UỐNG, THAM QUAN, SPA, DI CHUYỂN, NIGHTLIFE gần khách sạn → gọi get_nearby_services với category phù hợp.
+- Khi trả lời về dịch vụ lân cận:
+  + Liệt kê 3-5 gợi ý, mỗi gợi ý 1 dòng có emoji
+  + Bao gồm tên, khoảng cách, giá, và **link Google Maps** (nếu có)
+  + Format link: [Tên địa điểm](url_google_maps)
+  + Cuối cùng HỎI: "Bạn muốn biết thêm về loại dịch vụ nào khác không?"
+- Nếu khách hỏi về đặt xe/chuyến bay → trả lời: "Tính năng đặt xe và chuyến bay đang được phát triển, sẽ sớm có mặt trên BookingVN! Hiện tại bạn có thể tham khảo các dịch vụ bên ngoài."
+- Nếu get_nearby_services trả về rỗng → gợi ý chung dựa trên địa chỉ khách sạn (thành phố), nhưng ghi rõ "đây là gợi ý chung, bạn nên kiểm tra trên Google Maps".`;
 
 // ── Tool Definitions (Gemini Function Calling format) ───────────────────────
 const TOOLS = [{
@@ -101,6 +105,18 @@ const TOOLS = [{
           payment_method: { type: 'STRING', description: 'online hoặc pay_at_hotel', enum: ['online', 'pay_at_hotel'] },
         },
         required: ['room_type_id', 'check_in', 'check_out'],
+      },
+    },
+    {
+      name: 'get_nearby_services',
+      description: 'Lấy dịch vụ/địa điểm lân cận khách sạn. Dùng sau khi đặt phòng hoặc khi khách hỏi về ăn uống, tham quan, spa, di chuyển, nightlife.',
+      parameters: {
+        type: 'OBJECT',
+        properties: {
+          hotel_id: { type: 'NUMBER', description: 'ID khách sạn' },
+          category: { type: 'STRING', description: 'Loại dịch vụ: food, attraction, wellness, transport, nightlife', enum: ['food', 'attraction', 'wellness', 'transport', 'nightlife'] },
+        },
+        required: ['hotel_id'],
       },
     },
   ],
@@ -221,6 +237,33 @@ async function executeToolCall(functionCall, { userId, model }) {
           ? bookingErr.message
           : 'Không thể đặt phòng lúc này. Vui lòng thử lại sau.';
         return { error: safeMsg };
+      }
+    }
+
+    if (name === 'get_nearby_services') {
+      const nearbyModel = require('../hotel/nearby-service.model');
+      try {
+        const services = await nearbyModel.getNearbyServices({
+          hotelId: args.hotel_id,
+          category: args.category || null,
+          limit: 5,
+        });
+        if (!services || services.length === 0) {
+          return { services: [], message: 'Không tìm thấy dịch vụ lân cận cho khách sạn này.' };
+        }
+        return { services: services.map(s => ({
+          name: s.name,
+          category: s.category,
+          description: s.description,
+          address: s.address,
+          distance: s.distance,
+          rating: s.rating,
+          price_range: s.price_range,
+          map_url: s.map_url,
+          tags: s.tags,
+        })) };
+      } catch (err) {
+        return { services: [], message: 'Không thể lấy thông tin dịch vụ lân cận.' };
       }
     }
 

@@ -5,7 +5,7 @@ const { sendError } = require('../../common/middleware/validate');
  * Query: { keyword?, min_price?, max_price?, stars?, sort_by?, sort_order?, page?, limit? }
  */
 const validateGetHotels = (req, res, next) => {
-  const { min_price, max_price, stars, sort_by, sort_order, page, limit } = req.query;
+  const { min_price, max_price, stars, min_rating, sort_by, sort_order, page, limit } = req.query;
 
   if (min_price !== undefined && (isNaN(Number(min_price)) || Number(min_price) < 0)) {
     return sendError(res, 'Giá tối thiểu phải là số >= 0');
@@ -14,8 +14,16 @@ const validateGetHotels = (req, res, next) => {
     return sendError(res, 'Giá tối đa phải là số >= 0');
   }
   if (stars !== undefined) {
-    const s = Number(stars);
-    if (!Number.isInteger(s) || s < 1 || s > 5) return sendError(res, 'Số sao phải từ 1 đến 5');
+    // Hỗ trợ multi-value: "4,5" hoặc single "5"
+    const parts = String(stars).split(',');
+    for (const part of parts) {
+      const s = Number(part.trim());
+      if (!Number.isInteger(s) || s < 1 || s > 5) return sendError(res, 'Số sao phải từ 1 đến 5');
+    }
+  }
+  if (min_rating !== undefined) {
+    const r = Number(min_rating);
+    if (isNaN(r) || r < 0 || r > 10) return sendError(res, 'Điểm đánh giá tối thiểu phải từ 0 đến 10');
   }
   if (sort_by !== undefined && !['rating', 'price_from', 'created_at'].includes(sort_by)) {
     return sendError(res, 'Tiêu chí sắp xếp phải là: rating, price_from, created_at');
