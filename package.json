@@ -1,7 +1,7 @@
 {
   "name": "smart-hotel-booking",
   "version": "1.0.0",
-  "description": "Express.js backend with NestJS-like modular structure",
+  "description": "Express.js backend",
   "main": "src/server.js",
   "type": "commonjs",
   "engines": {

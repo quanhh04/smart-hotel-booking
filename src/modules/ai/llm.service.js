@@ -126,7 +126,7 @@ const TOOLS = [{
 const MIN_GAP_MS = 1000; // 1s giữa các request cùng key (8 key = ~8 RPM/key)
 const keyLastUsed = new Map(); // key index → timestamp
 
-async function throttle() {
+async function throttle() { // hàm đợi(không cho gọi API quá nhanh liên tục)
   const lastUsed = keyLastUsed.get(currentKeyIndex) || 0;
   const wait = MIN_GAP_MS - (Date.now() - lastUsed);
   if (wait > 0) {
@@ -141,10 +141,10 @@ async function callGemini(contents, retryCount = 0) {
 
   let res;
   try {
-    const controller = new AbortController();
+    const controller = new AbortController(); //Tạo cơ chế hủy request nếu quá lâu
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    res = await fetch(getGeminiUrl(), {
+    res = await fetch(getGeminiUrl(), { //gọi API Gemini
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
@@ -185,7 +185,7 @@ async function callGemini(contents, retryCount = 0) {
     return null;
   }
 
-  if (!res.ok) {
+  if (!res.ok) { //res.status <=200 && res.status <300
     const errText = await res.text();
     log.error('Gemini API error', { status: res.status, body: errText.substring(0, 200) });
     return null;
