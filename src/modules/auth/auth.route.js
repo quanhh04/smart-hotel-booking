@@ -13,3 +13,4 @@ router.put('/change-password', authMiddleware, validateChangePassword, authContr
 router.post('/forgot-password', validateForgotPassword, authController.forgotPassword);
 
 module.exports = router;
+ 

@@ -1,7 +1,4 @@
-/**
- * Bọc async controller để tự động bắt lỗi và trả response phù hợp.
- */
-const asyncHandler = (fn) => (req, res, next) => {
+const asyncHandler = (fn) => (req, res, next) => { //fn là controller thực tế
   Promise.resolve(fn(req, res, next)).catch((error) => {
     const status = error.status || 500;
     const message = status === 500
@@ -15,3 +12,4 @@ const asyncHandler = (fn) => (req, res, next) => {
 };
 
 module.exports = { asyncHandler };
+//bắt lỗi tự động cho controller async, không phải viết try catch cho từng API

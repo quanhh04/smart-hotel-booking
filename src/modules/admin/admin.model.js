@@ -1,6 +1,5 @@
 const pool = require('../../config/db');
-
-/** Thống kê tổng quan dashboard */
+//Lấy thống kê tổng quan dashboard
 const getStats = async () => {
   const result = await pool.query(`
     SELECT
@@ -13,7 +12,6 @@ const getStats = async () => {
   return result.rows[0];
 };
 
-/** Doanh thu theo ngày trong khoảng thời gian */
 const getRevenue = async (startDate, endDate) => {
   const result = await pool.query(
     `SELECT DATE(created_at) AS date, SUM(amount)::numeric AS revenue
@@ -26,7 +24,6 @@ const getRevenue = async (startDate, endDate) => {
   return result.rows;
 };
 
-/** Danh sách users, phân trang */
 const getUsers = async (page = 1, limit = 10) => {
   const offset = (page - 1) * limit;
   const result = await pool.query(
@@ -38,8 +35,7 @@ const getUsers = async (page = 1, limit = 10) => {
   const users = result.rows.map(({ total: _, ...user }) => user);
   return { users, total };
 };
-
-/** Top khách sạn theo doanh thu hoặc số booking */
+//Top khách sạn theo doanh thu hoặc booking
 const getTopHotels = async (sortBy = 'revenue', limit = 10) => {
   const orderColumn = sortBy === 'booking_count' ? 'booking_count' : 'revenue';
   const result = await pool.query(

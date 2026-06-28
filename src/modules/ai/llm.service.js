@@ -1,6 +1,4 @@
 /**
- * LLM Service — Gọi Google Gemini API với Function Calling.
- *
  * Flow:
  * 1. User gửi tin nhắn → gửi lên Gemini kèm lịch sử chat
  * 2. Gemini có thể trả lời text HOẶC yêu cầu gọi tool (search_rooms, get_hotel_detail, create_booking)
@@ -10,7 +8,7 @@
 const createLogger = require('../../common/helpers/logger');
 const log = createLogger('llm.service');
 
-// ── Config ──────────────────────────────────────────────────────────────────
+//Config
 const GEMINI_KEYS = (process.env.GEMINI_API_KEY || '')
   .split(',')
   .map(k => k.trim())
@@ -20,11 +18,13 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 let currentKeyIndex = 0;
 
+//Tạo url gọi Gemini API với key hiện tại
 function getGeminiUrl() {
   const key = GEMINI_KEYS[currentKeyIndex] || '';
   return `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`;
 }
 
+//Đổi sang key tiếp theo
 function rotateKey() {
   if (GEMINI_KEYS.length <= 1) return false;
   currentKeyIndex = (currentKeyIndex + 1) % GEMINI_KEYS.length;
@@ -40,7 +40,6 @@ if (GEMINI_KEYS.length > 0) {
   log.warn('LLM disabled: GEMINI_API_KEY not set');
 }
 
-// ── System Prompt ───────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `Bạn là trợ lý đặt phòng khách sạn thông minh của BookingVN. Trả lời bằng tiếng Việt, thân thiện, ngắn gọn.
 
 Bạn có các công cụ (tools) để:
@@ -65,7 +64,6 @@ QUY TẮC:
 - Nếu khách hỏi về đặt xe/chuyến bay → trả lời: "Tính năng đặt xe và chuyến bay đang được phát triển, sẽ sớm có mặt trên BookingVN! Hiện tại bạn có thể tham khảo các dịch vụ bên ngoài."
 - Nếu get_nearby_services trả về rỗng → gợi ý chung dựa trên địa chỉ khách sạn (thành phố), nhưng ghi rõ "đây là gợi ý chung, bạn nên kiểm tra trên Google Maps".`;
 
-// ── Tool Definitions (Gemini Function Calling format) ───────────────────────
 const TOOLS = [{
   functionDeclarations: [
     {
@@ -122,8 +120,8 @@ const TOOLS = [{
   ],
 }];
 
-// ── Rate Limit ────────────────────────────────────────────────────────────────
-const MIN_GAP_MS = 1000; // 1s giữa các request cùng key (8 key = ~8 RPM/key)
+//Rate Limit 
+const MIN_GAP_MS = 1000; // 1s giữa các request cùng key 
 const keyLastUsed = new Map(); // key index → timestamp
 
 async function throttle() { // hàm đợi(không cho gọi API quá nhanh liên tục)
@@ -135,7 +133,6 @@ async function throttle() { // hàm đợi(không cho gọi API quá nhanh liên
   keyLastUsed.set(currentKeyIndex, Date.now());
 }
 
-// ── Gọi Gemini API ──────────────────────────────────────────────────────────
 async function callGemini(contents, retryCount = 0) {
   await throttle();
 
@@ -144,7 +141,7 @@ async function callGemini(contents, retryCount = 0) {
     const controller = new AbortController(); //Tạo cơ chế hủy request nếu quá lâu
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    res = await fetch(getGeminiUrl(), { //gọi API Gemini
+    res = await fetch(getGeminiUrl(), { //gửi request tới Gemini API
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
@@ -195,7 +192,7 @@ async function callGemini(contents, retryCount = 0) {
   return data?.candidates?.[0]?.content || null;
 }
 
-// ── Thực thi Tool ────────────────────────────────────────────────────────────
+//Thực thi Tool 
 async function executeToolCall(functionCall, { userId, model }) {
   const { name, args } = functionCall;
   log.info('Executing tool', { name, args });
@@ -274,24 +271,16 @@ async function executeToolCall(functionCall, { userId, model }) {
   }
 }
 
-// ── Chat chính ───────────────────────────────────────────────────────────────
+//Chat chính 
 
-/**
- * Chat với Gemini, hỗ trợ function calling loop.
- *
- * @param {string} userMessage - Tin nhắn user
- * @param {Array} previousContents - Lịch sử chat (Gemini format)
- * @param {object} context - { userId, model (ai.model) }
- * @returns {{ reply, rooms, booking, geminiContents }} hoặc null nếu LLM tắt
- */
 async function chat(userMessage, previousContents, context) {
   if (!isEnabled()) return null;
 
   // Ghép lịch sử cũ + tin nhắn mới
   const contents = [...previousContents, { role: 'user', parts: [{ text: userMessage }] }];
 
-  let collectedRooms = [];
-  let bookingResult = null;
+  let collectedRooms = [];//Danh sách phòng tìm được
+  let bookingResult = null;//Kết quả đặt phòng nếu có
 
   // Vòng lặp tool calling: Gemini có thể gọi tool nhiều lần trước khi trả lời text
   for (let round = 0; round < 3; round++) {
@@ -309,7 +298,7 @@ async function chat(userMessage, previousContents, context) {
     if (!response) return null;
 
     // Gemini trả text → xong
-    const toolCall = response.parts?.find(p => p.functionCall);
+    const toolCall = response.parts?.find(p => p.functionCall);//Kiểm tra Gemini có yêu cầu gọi tool không
     if (!toolCall) {
       const reply = response.parts?.find(p => p.text)?.text?.trim() || 'Xin lỗi, tôi không hiểu.';
       contents.push({ role: 'model', parts: [{ text: reply }] });

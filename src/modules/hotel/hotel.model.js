@@ -2,10 +2,6 @@ const pool = require('../../config/db');
 
 const ALLOWED_SORT_COLUMNS = ['rating', 'price_from', 'created_at'];
 
-/**
- * Tìm kiếm khách sạn với bộ lọc động.
- * Hỗ trợ: keyword, giá, số sao, sắp xếp, phân trang.
- */
 const searchHotels = async ({ keyword, minPrice, maxPrice, stars, minRating, sortBy, sortOrder, page, limit }) => {
   const filters = [];
   const values = [];
@@ -25,7 +21,7 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, minRating, sor
     filters.push(`h.price_from <= $${++idx}`);
   }
   if (stars !== undefined) {
-    // Hỗ trợ multi-value: "4,5" → IN (4, 5)
+    // Hỗ trợ multi-value: "4,5" → IN [4, 5]
     const starValues = String(stars).split(',').map(s => Number(s.trim())).filter(Number.isInteger);
     if (starValues.length === 1) {
       values.push(starValues[0]);

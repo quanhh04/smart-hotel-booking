@@ -1,7 +1,3 @@
-/**
- * Logger đơn giản — format: [timestamp] [LEVEL] [scope] message | meta
- */
-
 function formatMeta(meta) {
   if (meta == null) return '';
   if (meta instanceof Error) return ` | ${meta.message}`;

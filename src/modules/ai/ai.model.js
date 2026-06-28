@@ -1,13 +1,8 @@
 const pool = require('../../config/db.js');
 
-/**
- * Tìm phòng theo bộ lọc (dùng cho LLM function calling).
- * Lọc theo: thành phố, giá, số khách, tiện ích, ngày còn trống.
- * Trả về tối đa 10 phòng, sắp xếp theo giá tăng dần.
- */
 async function searchRooms(filters) {
   const { min_price, max_price, guests, amenities, check_in, check_out, city } = filters || {};
-
+//Ba biến dùng để build câu lệnh SQL
   const conditions = [];
   const values = [];
   let idx = 0;
@@ -19,15 +14,15 @@ async function searchRooms(filters) {
   if (city)              { values.push(`%${city.toLowerCase()}%`); conditions.push(`LOWER(h.address) LIKE $${++idx}`); }
 
   // Lọc tiện ích: phòng phải có TẤT CẢ tiện ích yêu cầu
-  let amenityJoin = '';
+  let amenityJoin = ''; //tạo biến chứa JOIN
   let amenityHaving = '';
   if (amenities && amenities.length > 0) {
-    values.push(amenities);
+    values.push(amenities);//thêm danh sách tiện ích vào mảng values
     amenityJoin = `
       JOIN hotel.room_amenities ra2 ON ra2.room_type_id = r.id
       JOIN hotel.amenities a2 ON a2.id = ra2.amenity_id AND LOWER(a2.name) = ANY($${++idx})`;
     values.push(amenities.length);
-    amenityHaving = `COUNT(DISTINCT LOWER(a2.name)) = $${++idx}`;
+    amenityHaving = `COUNT(DISTINCT LOWER(a2.name)) = $${++idx}`;//Đảm bảo phòng phải đủ tiện ích yêu cầu
   }
 
   // Lọc ngày còn trống: đếm booking trùng ngày, so với total_quantity
@@ -49,7 +44,7 @@ async function searchRooms(filters) {
   const havingParts = [amenityHaving, availHaving].filter(Boolean);
   const having = havingParts.length > 0 ? `HAVING ${havingParts.join(' AND ')}` : '';
   const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-
+//Lấy danh sách phòng
   const query = `
     SELECT r.id AS room_id, r.name AS room_name, r.hotel_id,
            h.name AS hotel_name, h.address AS hotel_address,
@@ -71,10 +66,6 @@ async function searchRooms(filters) {
   return result.rows;
 }
 
-/**
- * Lấy phòng ứng viên cho recommendation (tối đa 100).
- * Lọc sơ theo số khách và giá (cho phép vượt 50% budget).
- */
 async function getCandidateRooms({ guests, max_price } = {}) {
   const conditions = [];
   const values = [];
@@ -101,11 +92,7 @@ async function getCandidateRooms({ guests, max_price } = {}) {
     LIMIT 100`, values);
   return result.rows;
 }
-
-/**
- * Đếm booking đã xác nhận/thanh toán theo loại phòng → dùng tính popularity.
- * @returns {Map<number, number>} roomTypeId → bookingCount
- */
+//Đếm số booking của từng loại phòng
 async function getBookingCounts() {
   const result = await pool.query(`
     SELECT room_type_id, COUNT(*)::int AS booking_count

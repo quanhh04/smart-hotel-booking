@@ -1,9 +1,5 @@
 const jwt = require('jsonwebtoken');
 
-/**
- * Optional auth middleware.
- * Decode JWT nếu có, inject req.user. Không block nếu không có token.
- */
 const optionalAuth = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
@@ -17,7 +13,6 @@ const optionalAuth = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
   } catch {
-    // Token invalid/expired — ignore, treat as unauthenticated
   }
 
   return next();

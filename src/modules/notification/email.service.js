@@ -24,7 +24,7 @@ if (RESEND_API_KEY) {
   log.warn('⚠️  Không có RESEND_API_KEY hoặc SMTP_HOST — email sẽ dùng Ethereal (chỉ preview, không gửi thật)');
 }
 
-// ─── Resend (HTTP API) ─────────────────────────────────────────────────────
+//Resend (HTTP API) 
 async function sendViaResend({ to, subject, html }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -44,7 +44,7 @@ async function sendViaResend({ to, subject, html }) {
   log.info('Email sent via Resend', { id: data.id, to });
 }
 
-// ─── Nodemailer (SMTP fallback) ────────────────────────────────────────────
+//Nodemailer
 let transporter = null;
 
 async function sendViaSMTP({ to, subject, html }) {
@@ -76,7 +76,6 @@ async function sendViaSMTP({ to, subject, html }) {
   if (previewUrl) log.info('Email preview', { previewUrl });
 }
 
-// ─── Send (chọn provider tự động) ──────────────────────────────────────────
 async function sendEmail({ to, subject, html }) {
   if (RESEND_API_KEY) {
     return sendViaResend({ to, subject, html });
@@ -84,7 +83,6 @@ async function sendEmail({ to, subject, html }) {
   return sendViaSMTP({ to, subject, html });
 }
 
-// ─── Public API ─────────────────────────────────────────────────────────────
 const sendBookingConfirmation = async ({ to, bookingId, hotelName, roomName, checkIn, checkOut }) => {
   try {
     await sendEmail({

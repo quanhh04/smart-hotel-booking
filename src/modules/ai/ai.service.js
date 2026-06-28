@@ -1,27 +1,13 @@
-/**
- * ai.service — Logic cho 2 tính năng AI:
- *   1. chat()              — Trợ lý chat dùng Gemini, có duy trì lịch sử hội thoại theo session.
- *   2. getRecommendations() — Gợi ý phòng dựa trên 5 tiêu chí có trọng số (không cần LLM).
- *
- * Flow của chat:
- *   FE gửi { message, session_id } → service tìm history theo sessionId → gửi cho LLM
- *   → LLM trả về reply + (có thể) danh sách phòng đề xuất → service lưu lại history.
- */
 const createLogger = require('../../common/helpers/logger.js');
 const model = require('./ai.model.js');
 const llm = require('./llm.service.js');
 
 const log = createLogger('ai.service');
 
-// ─── Session Manager ──────────────────────────────────────────────────────────
-//
-// NOTE: sessions dùng Map in-memory → sẽ mất khi restart.
-// TODO: Chuyển sang Redis hoặc DB (bảng ai_sessions) + TTL khi deploy production.
-
 const MAX_HISTORY_ENTRIES = 40;
 
 /** @type {Map<string, { geminiContents: Array, messageCount: number }>} */
-const sessions = new Map();
+const sessions = new Map();//Map giống như một bộ nhớ lưu trữ tạm thời
 
 function getSession(sessionId) {
   if (!sessionId) return null;
@@ -32,20 +18,20 @@ function saveSession(sessionId, geminiContents) {
   if (!sessionId || !geminiContents) return;
 
   let ctx = sessions.get(sessionId);
-  if (!ctx) {
+  if (!ctx) {// Nếu chưa có session, tạo mới
     ctx = { geminiContents: [], messageCount: 0 };
     sessions.set(sessionId, ctx);
   }
 
-  ctx.geminiContents = geminiContents;
+  ctx.geminiContents = geminiContents;//Cập nhật lịch sử chat mới
   ctx.messageCount++;
 
   while (ctx.geminiContents.length > MAX_HISTORY_ENTRIES) {
-    ctx.geminiContents.shift();
+    ctx.geminiContents.shift();//loại bỏ phần tử đầu tiên của mảng
   }
 }
 
-// ─── Chat ─────────────────────────────────────────────────────────────────────
+//Chat 
 
 const UNAVAILABLE_REPLY = 'Xin lỗi, trợ lý AI đang bận. Vui lòng thử lại sau ít giây!';
 
@@ -59,11 +45,12 @@ async function chat(message, sessionId, userId) {
       reply: 'Vui lòng nhập nội dung tin nhắn.',
     };
   }
-
+//Lấy lích sử cũ
   const existing = getSession(sessionId);
   const previousContents = existing ? existing.geminiContents : [];
 
   try {
+    //Gọi Gemini qua llm.service.js để nhận phản hồi
     const llmResult = await llm.chat(message, previousContents, { userId, model });
 
     if (llmResult) {
@@ -90,21 +77,10 @@ async function chat(message, sessionId, userId) {
   };
 }
 
-// ─── Recommendations ──────────────────────────────────────────────────────────
-
-/**
- * Tính điểm phù hợp cho 1 phòng dựa trên 5 tiêu chí.
- * Mỗi tiêu chí có trọng số riêng, tổng = 1.0
- *
- * @param {object} room - Phòng ứng viên từ DB
- * @param {object} criteria - { maxPrice, guests, amenities (mảng lowercase) }
- * @param {number} maxBookingCount - Số booking cao nhất trong tất cả phòng
- * @param {Map} bookingCounts - Map<roomId, count>
- * @returns {number} Điểm từ 0 đến 1
- */
+//Recommendations
 function scoreRoom(room, criteria, maxBookingCount, bookingCounts) {
-  const { maxPrice, guests, amenities } = criteria;
-  const roomAmenities = (room.amenities || []).map(a => a.toLowerCase());
+  const { maxPrice, guests, amenities } = criteria; //tiêu chí yêu cầu
+  const roomAmenities = (room.amenities || []).map(a => a.toLowerCase());//chuyển sang chữ thường để dễ so sánh
 
   // 1. Giá phù hợp (30%) — phòng càng rẻ hơn budget càng tốt
   let priceFit = 0.15; // mặc định nếu không có budget
@@ -140,21 +116,6 @@ function scoreRoom(room, criteria, maxBookingCount, bookingCounts) {
   return priceFit + guestFit + amenityMatch + popularity + reviewRating;
 }
 
-/**
- * Gợi ý phòng dựa trên thuật toán scoring (KHÔNG dùng LLM).
- *
- * Quy trình 4 bước:
- *   1. Lấy danh sách phòng ứng viên từ DB (đã filter sơ theo guests + max_price).
- *   2. Lấy thống kê số booking từng phòng → tính độ phổ biến.
- *   3. Chấm điểm từng phòng với scoreRoom() — xem 5 tiêu chí ở đó.
- *   4. Sắp xếp giảm dần + đa dạng hoá (mỗi khách sạn tối đa 2 phòng) → trả về top N.
- *
- * @param {object} params
- * @param {number} [params.guests]     Số khách
- * @param {number} [params.max_price]  Ngân sách tối đa / đêm
- * @param {string} [params.amenities]  Chuỗi tiện ích phân tách bằng dấu phẩy ("wifi,pool")
- * @param {number} [params.limit]      Số phòng muốn trả (mặc định 5, tối đa 20)
- */
 async function getRecommendations({ guests, max_price, amenities, limit }) {
   log.info('getRecommendations', { guests, max_price, amenities, limit });
 
@@ -167,7 +128,7 @@ async function getRecommendations({ guests, max_price, amenities, limit }) {
 
   // Lấy dữ liệu từ DB
   const [candidates, bookingCounts] = await Promise.all([
-    model.getCandidateRooms({ guests: requestedGuests, max_price: requestedMaxPrice }),
+    model.getCandidateRooms({ guests: requestedGuests, max_price: requestedMaxPrice }),//lấy danh sách phòngphù hợp
     model.getBookingCounts(),
   ]);
 
