@@ -2,10 +2,6 @@ const { sendError } = require('../../common/middleware/validate');
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
-/**
- * PATCH /rooms/:id/inventory
- * Params: { id }, Body: { total_quantity }
- */
 const validateUpdateInventory = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID loại phòng phải là số nguyên dương');
@@ -19,10 +15,6 @@ const validateUpdateInventory = (req, res, next) => {
   next();
 };
 
-/**
- * GET /hotels/:id/inventory
- * Params: { id }, Query: { check_in?, check_out? }
- */
 const validateGetHotelInventory = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID khách sạn phải là số nguyên dương');

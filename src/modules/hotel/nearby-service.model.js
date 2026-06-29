@@ -1,8 +1,5 @@
 const pool = require('../../config/db');
 
-/**
- * Lấy dịch vụ lân cận của khách sạn, có lọc theo category.
- */
 const getNearbyServices = async ({ hotelId, category, limit = 20 }) => {
   const conditions = ['ns.hotel_id = $1'];
   const values = [hotelId];
@@ -30,9 +27,6 @@ const getNearbyServices = async ({ hotelId, category, limit = 20 }) => {
   return result.rows;
 };
 
-/**
- * Lấy danh sách category có sẵn cho 1 khách sạn.
- */
 const getCategories = async (hotelId) => {
   const result = await pool.query(
     `SELECT DISTINCT category, COUNT(*)::int AS count
@@ -45,9 +39,7 @@ const getCategories = async (hotelId) => {
   return result.rows;
 };
 
-/**
- * Admin: lấy tất cả nearby services, hỗ trợ lọc theo hotel_id, category, phân trang.
- */
+
 const getAllNearbyServices = async ({ hotelId, category, page = 1, limit = 20 }) => {
   const conditions = [];
   const values = [];
@@ -91,9 +83,6 @@ const getAllNearbyServices = async ({ hotelId, category, page = 1, limit = 20 })
   return { services, total };
 };
 
-/**
- * Admin: tạo nearby service mới.
- */
 const createNearbyService = async (data) => {
   const { hotel_id, category, name, description, address, distance, rating, price_range, map_url, website_url, tags } = data;
   const result = await pool.query(
@@ -105,9 +94,6 @@ const createNearbyService = async (data) => {
   return result.rows[0];
 };
 
-/**
- * Admin: cập nhật nearby service.
- */
 const updateNearbyService = async (id, data) => {
   const fields = [];
   const values = [];
@@ -131,17 +117,11 @@ const updateNearbyService = async (id, data) => {
   return result.rows[0] || null;
 };
 
-/**
- * Admin: xoá nearby service.
- */
 const deleteNearbyService = async (id) => {
   const result = await pool.query('DELETE FROM hotel.nearby_services WHERE id = $1 RETURNING id', [id]);
   return result.rows[0] || null;
 };
 
-/**
- * Lấy 1 nearby service theo id.
- */
 const getById = async (id) => {
   const result = await pool.query('SELECT * FROM hotel.nearby_services WHERE id = $1', [id]);
   return result.rows[0] || null;

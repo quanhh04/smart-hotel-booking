@@ -1,9 +1,5 @@
 const { sendError } = require('../../common/middleware/validate');
 
-/**
- * GET /notifications
- * Query: { page?, limit? }
- */
 const validateGetNotifications = (req, res, next) => {
   const { page, limit } = req.query;
 
@@ -20,30 +16,18 @@ const validateGetNotifications = (req, res, next) => {
   next();
 };
 
-/**
- * PATCH /notifications/:id/read
- * Params: { id }
- */
 const validateMarkAsRead = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID thông báo phải là số nguyên dương');
   next();
 };
 
-/**
- * DELETE /notifications/:id
- * Params: { id }
- */
 const validateDeleteNotification = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID thông báo phải là số nguyên dương');
   next();
 };
 
-/**
- * POST /notifications/system
- * Body: { title, message }
- */
 const validateCreateSystemNotification = (req, res, next) => {
   const { title, message } = req.body;
 

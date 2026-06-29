@@ -9,8 +9,6 @@ const getNearbyServices = asyncHandler(async (req, res) => {
   return res.status(200).json(result);
 });
 
-// ─── Admin CRUD ─────────────────────────────────────────────────────────────
-
 const adminGetAll = asyncHandler(async (req, res) => {
   const { hotel_id, category, page, limit } = req.query;
   const result = await nearbyServiceService.adminGetAll({ hotelId: hotel_id, category, page, limit });

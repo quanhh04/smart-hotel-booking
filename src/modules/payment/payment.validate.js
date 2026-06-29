@@ -1,9 +1,5 @@
 const { sendError } = require('../../common/middleware/validate');
 
-/**
- * POST /payments/pay
- * Body: { booking_id }
- */
 const validatePayBooking = (req, res, next) => {
   const { booking_id } = req.body;
   if (!booking_id) return sendError(res, 'ID đặt phòng là bắt buộc');
@@ -13,10 +9,6 @@ const validatePayBooking = (req, res, next) => {
   next();
 };
 
-/**
- * POST /payments/refund
- * Body: { booking_id }
- */
 const validateRefund = (req, res, next) => {
   const { booking_id } = req.body;
   if (!booking_id) return sendError(res, 'ID đặt phòng là bắt buộc');
@@ -26,10 +18,6 @@ const validateRefund = (req, res, next) => {
   next();
 };
 
-/**
- * GET /payments/admin/all
- * Query: { status?, page?, limit? }
- */
 const validateGetAllPayments = (req, res, next) => {
   const { status, page, limit } = req.query;
 
@@ -48,10 +36,6 @@ const validateGetAllPayments = (req, res, next) => {
   next();
 };
 
-/**
- * GET /payments/:id
- * Params: { id }
- */
 const validateGetPaymentDetail = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID giao dịch phải là số nguyên dương');

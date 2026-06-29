@@ -1,15 +1,3 @@
-/**
- * notification.service — Lớp business logic cho notification.
- *
- * Gồm 2 nhóm hàm:
- *   1. Các hàm "chuẩn" (gọi từ controller HTTP): getUserNotifications,
- *      markAsRead, markAllAsRead, deleteNotification, createSystemNotification.
- *   2. Các hàm "fire-and-forget" (notify*): được các module khác
- *      (booking, payment, review) gọi trực tiếp — LUÔN try/catch và KHÔNG
- *      throw, vì tạo notification thất bại không được làm hỏng business flow chính.
- *
- * Quy ước: service chỉ gọi qua model, không đụng SQL trực tiếp.
- */
 const notificationModel = require('./notification.model');
 const authModel = require('../auth/auth.model');
 const emailService = require('./email.service');

@@ -12,8 +12,6 @@ const getNearbyServices = async (hotelId, { category, limit }) => {
   return { services, categories };
 };
 
-// ─── Admin CRUD ─────────────────────────────────────────────────────────────
-
 const adminGetAll = async ({ hotelId, category, page, limit }) => {
   return nearbyServiceModel.getAllNearbyServices({ hotelId, category, page, limit });
 };

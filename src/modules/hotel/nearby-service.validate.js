@@ -2,10 +2,6 @@ const { sendError } = require('../../common/middleware/validate');
 
 const VALID_CATEGORIES = ['food', 'attraction', 'wellness', 'transport', 'nightlife'];
 
-/**
- * GET /hotels/:id/nearby-services
- * Params: { id }, Query: { category?, limit? }
- */
 const validateGetNearbyServices = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) {
@@ -25,10 +21,6 @@ const validateGetNearbyServices = (req, res, next) => {
   next();
 };
 
-/**
- * GET /nearby-services (admin)
- * Query: { hotel_id?, category?, page?, limit? }
- */
 const validateAdminGetAll = (req, res, next) => {
   const { hotel_id, category, page, limit } = req.query;
 
@@ -50,10 +42,6 @@ const validateAdminGetAll = (req, res, next) => {
   next();
 };
 
-/**
- * POST /nearby-services (admin)
- * Body: { hotel_id, category, name, ... }
- */
 const validateAdminCreate = (req, res, next) => {
   const { hotel_id, category, name } = req.body;
 
@@ -76,10 +64,6 @@ const validateAdminCreate = (req, res, next) => {
   next();
 };
 
-/**
- * PUT /nearby-services/:id (admin)
- * Params: { id }, Body: { ... }
- */
 const validateAdminUpdate = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID dịch vụ phải là số nguyên dương');
@@ -99,9 +83,6 @@ const validateAdminUpdate = (req, res, next) => {
   next();
 };
 
-/**
- * DELETE /nearby-services/:id (admin)
- */
 const validateAdminDelete = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID dịch vụ phải là số nguyên dương');

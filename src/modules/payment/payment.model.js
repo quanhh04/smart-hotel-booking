@@ -1,19 +1,11 @@
 const pool = require('../../config/db');
 const { createError } = require('../../common/helpers/error');
 
-/**
- * Tính số đêm giữa 2 ngày.
- */
 const calculateNights = (checkIn, checkOut) => {
   const msPerDay = 24 * 60 * 60 * 1000;
   return Math.round((new Date(checkOut) - new Date(checkIn)) / msPerDay);
 };
 
-/**
- * Xử lý thanh toán online cho booking.
- * Server tự tính amount = price_per_night × số đêm.
- * Chỉ cho phép thanh toán booking online + status PENDING.
- */
 const processPayment = async ({ bookingId, userId }) => {
   const client = await pool.connect();
 
@@ -40,7 +32,6 @@ const processPayment = async ({ bookingId, userId }) => {
       throw createError('Không tìm thấy đặt phòng', 404);
     }
 
-    // Chỉ chủ booking mới được thanh toán
     if (booking.user_id !== userId) {
       throw createError('Bạn không có quyền thanh toán đặt phòng này', 403);
     }
@@ -108,10 +99,6 @@ const getPaymentsByUserId = async (userId) => {
   return result.rows;
 };
 
-/**
- * Hoàn tiền cho booking đã thanh toán.
- * Transaction: INSERT payment REFUNDED + UPDATE booking status → REFUNDED.
- */
 const processRefund = async (bookingId) => {
   const client = await pool.connect();
 
@@ -169,10 +156,6 @@ const processRefund = async (bookingId) => {
   }
 };
 
-/**
- * Lấy danh sách tất cả giao dịch thanh toán (admin).
- * Hỗ trợ filter theo status, phân trang.
- */
 const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
   const conditions = [];
   const params = [];
@@ -182,7 +165,7 @@ const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
     conditions.push(`p.status = $${paramIndex++}`);
     params.push(status);
   }
-
+//Có dk thì tạo WHERE,không có thì lấy all
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
   const offset = (page - 1) * limit;
 
@@ -211,10 +194,6 @@ const getAllPayments = async ({ status, page = 1, limit = 10 }) => {
   return { payments, total, page, limit };
 };
 
-/**
- * Lấy chi tiết một giao dịch thanh toán theo ID.
- * JOIN bookings, room_types, hotels.
- */
 const getPaymentById = async (paymentId) => {
   const result = await pool.query(
     `

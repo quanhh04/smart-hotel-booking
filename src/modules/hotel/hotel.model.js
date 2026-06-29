@@ -43,7 +43,7 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, minRating, sor
   const currentPage = Number(page) || 1;
   const currentLimit = Number(limit) || 10;
   const offset = (currentPage - 1) * currentLimit;
-
+//Thêm limit và offset vào mảng values
   values.push(currentLimit);
   const limitIdx = ++idx;
   values.push(offset);
@@ -65,7 +65,7 @@ const searchHotels = async ({ keyword, minPrice, maxPrice, stars, minRating, sor
     ORDER BY h.${sortColumn} ${order}
     LIMIT $${limitIdx} OFFSET $${offsetIdx}`;
 
-  const result = await pool.query(query, values);
+  const result = await pool.query(query, values);//Chạy câu SQL với các giá trị trong values
   const total = result.rows.length > 0 ? parseInt(result.rows[0].total, 10) : 0;
   const hotels = result.rows.map(({ total: _total, ...hotel }) => hotel);
   return { hotels, total };
@@ -81,9 +81,6 @@ const createHotel = async ({ name, address, description }) => {
   return result.rows[0];
 };
 
-/**
- * Lấy chi tiết khách sạn kèm danh sách phòng.
- */
 const getHotelDetailById = async (hotelId) => {
   const result = await pool.query(
     `SELECT h.id, h.name, h.address, h.description, h.created_at,
@@ -115,9 +112,6 @@ const getHotelDetailById = async (hotelId) => {
   return result.rows[0] || null;
 };
 
-/**
- * Cập nhật khách sạn — chỉ update các field được truyền vào.
- */
 const updateHotel = async (hotelId, { name, address, description }) => {
   const fields = [];
   const values = [];
@@ -129,7 +123,7 @@ const updateHotel = async (hotelId, { name, address, description }) => {
 
   if (fields.length === 0) return getHotelDetailById(hotelId);
 
-  values.push(hotelId);
+  values.push(hotelId);//Thêm hotelId vào cuối mảng
   const result = await pool.query(
     `UPDATE hotel.hotels SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
     values,
@@ -148,9 +142,6 @@ const hasActiveBookings = async (hotelId) => {
   return result.rows[0].count > 0;
 };
 
-/**
- * Xoá khách sạn + phòng + tiện ích liên quan (transaction).
- */
 const deleteHotel = async (hotelId) => {
   const client = await pool.connect();
   try {
@@ -172,9 +163,6 @@ const getHotelById = async (hotelId) => {
   return result.rows[0] || null;
 };
 
-/**
- * Lấy danh sách phòng của khách sạn, kèm tiện ích, phân trang.
- */
 const getRoomsByHotelId = async ({ hotelId, page = 1, limit = 10 }) => {
   const currentPage = Number(page) || 1;
   const currentLimit = Number(limit) || 10;

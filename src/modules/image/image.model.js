@@ -25,7 +25,6 @@ const getImages = async ({ type, limit = 50 }) => {
   return result.rows;
 };
 
-// Hotel-Image mapping
 const addHotelImage = async (hotelId, imageId, sortOrder = 0) => {
   await pool.query(
     'INSERT INTO hotel.hotel_images (hotel_id, image_id, sort_order) VALUES ($1, $2, $3) ON CONFLICT (hotel_id, image_id) DO UPDATE SET sort_order = $3',

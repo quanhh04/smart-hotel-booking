@@ -2,10 +2,6 @@ const { sendError } = require('../../common/middleware/validate');
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/**
- * POST /ai/chat
- * Body: { message, session_id? }
- */
 const validateChat = (req, res, next) => {
   const { message, session_id } = req.body;
 
@@ -22,10 +18,6 @@ const validateChat = (req, res, next) => {
   next();
 };
 
-/**
- * GET /ai/recommendations
- * Query: { guests?, max_price?, amenities?, limit? }
- */
 const validateRecommendations = (req, res, next) => {
   const { guests, max_price, limit } = req.query;
 

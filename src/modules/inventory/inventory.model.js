@@ -11,7 +11,6 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
   try {
     await client.query('BEGIN');
 
-    // Lock the room_type row and check existence
     const roomResult = await client.query(
       'SELECT id, total_quantity FROM hotel.room_types WHERE id = $1 FOR UPDATE',
       [roomTypeId],
@@ -21,7 +20,6 @@ const updateTotalQuantity = async ({ roomTypeId, totalQuantity }) => {
       throw createError('Loại phòng không tồn tại', 404);
     }
 
-    // Count active bookings for future dates
     const bookingResult = await client.query(
       `SELECT COUNT(*) AS active_count
        FROM booking.bookings

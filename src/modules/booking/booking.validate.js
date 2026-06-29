@@ -2,10 +2,6 @@ const { sendError } = require('../../common/middleware/validate');
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
-/**
- * POST /bookings
- * Body: { room_type_id, check_in, check_out, payment_method? }
- */
 const validateCreateBooking = (req, res, next) => {
   const { room_type_id, check_in, check_out, payment_method } = req.body;
 
@@ -31,30 +27,18 @@ const validateCreateBooking = (req, res, next) => {
   next();
 };
 
-/**
- * PATCH /bookings/:id/cancel
- * Params: { id }
- */
 const validateCancelBooking = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID đặt phòng phải là số nguyên dương');
   next();
 };
 
-/**
- * GET /bookings/:id
- * Params: { id }
- */
 const validateGetBookingDetail = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID đặt phòng phải là số nguyên dương');
   next();
 };
 
-/**
- * GET /bookings/admin/all
- * Query: { status?, page?, limit? }
- */
 const validateGetAllBookings = (req, res, next) => {
   const { status, page, limit } = req.query;
 

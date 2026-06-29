@@ -2,10 +2,6 @@ const { sendError } = require('../../common/middleware/validate');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * POST /auth/register
- * Body: { email, password }
- */
 const validateRegister = (req, res, next) => {
   const { email, password } = req.body;
 
@@ -20,10 +16,6 @@ const validateRegister = (req, res, next) => {
   next();
 };
 
-/**
- * POST /auth/login
- * Body: { email, password }
- */
 const validateLogin = (req, res, next) => {
   const { email, password } = req.body;
 
@@ -37,10 +29,6 @@ const validateLogin = (req, res, next) => {
   next();
 };
 
-/**
- * PUT /auth/profile
- * Body: { display_name?, phone? }
- */
 const validateUpdateProfile = (req, res, next) => {
   const { display_name, phone } = req.body;
 
@@ -57,10 +45,7 @@ const validateUpdateProfile = (req, res, next) => {
   next();
 };
 
-/**
- * PUT /auth/change-password
- * Body: { old_password, new_password }
- */
+
 const validateChangePassword = (req, res, next) => {
   const { old_password, new_password } = req.body;
 
@@ -74,10 +59,6 @@ const validateChangePassword = (req, res, next) => {
   next();
 };
 
-/**
- * POST /auth/forgot-password
- * Body: { email }
- */
 const validateForgotPassword = (req, res, next) => {
   const { email } = req.body;
 

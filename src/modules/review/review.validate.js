@@ -1,9 +1,5 @@
 const { sendError } = require('../../common/middleware/validate');
 
-/**
- * POST /reviews
- * Body: { booking_id, rating, comment }
- */
 const validateCreateReview = (req, res, next) => {
   const { booking_id, rating, comment } = req.body;
 
@@ -24,10 +20,6 @@ const validateCreateReview = (req, res, next) => {
   next();
 };
 
-/**
- * PUT /reviews/:id
- * Params: { id }, Body: { rating, comment }
- */
 const validateUpdateReview = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID đánh giá phải là số nguyên dương');
@@ -46,10 +38,6 @@ const validateUpdateReview = (req, res, next) => {
   next();
 };
 
-/**
- * GET /reviews/hotel/:hotelId
- * Params: { hotelId }, Query: { page?, limit? }
- */
 const validateGetHotelReviews = (req, res, next) => {
   const hotelId = Number(req.params.hotelId);
   if (!Number.isInteger(hotelId) || hotelId <= 0) return sendError(res, 'ID khách sạn phải là số nguyên dương');
@@ -67,10 +55,6 @@ const validateGetHotelReviews = (req, res, next) => {
   next();
 };
 
-/**
- * DELETE /reviews/:id
- * Params: { id }
- */
 const validateDeleteReview = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID đánh giá phải là số nguyên dương');

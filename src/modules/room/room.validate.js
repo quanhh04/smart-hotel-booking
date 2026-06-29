@@ -2,10 +2,6 @@ const { sendError } = require('../../common/middleware/validate');
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?)?$/;
 
-/**
- * GET /rooms
- * Query: { minPrice?, maxPrice?, guests?, amenities?, check_in?, check_out?, page?, limit? }
- */
 const validateGetRooms = (req, res, next) => {
   const { minPrice, maxPrice, guests, check_in, check_out, page, limit } = req.query;
 
@@ -34,10 +30,6 @@ const validateGetRooms = (req, res, next) => {
   next();
 };
 
-/**
- * POST /rooms
- * Body: { hotel_id, name, price_per_night, max_guests, description, amenities, total_quantity, bed?, size? }
- */
 const validateCreateRoom = (req, res, next) => {
   const { hotel_id, name, price_per_night, max_guests, description, amenities, total_quantity } = req.body;
 
@@ -73,10 +65,6 @@ const validateCreateRoom = (req, res, next) => {
   next();
 };
 
-/**
- * PUT /rooms/:id
- * Params: { id }, Body: { name?, price_per_night?, max_guests?, description?, amenities?, bed?, size? }
- */
 const validateUpdateRoom = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID phòng phải là số nguyên dương');
@@ -102,10 +90,6 @@ const validateUpdateRoom = (req, res, next) => {
   next();
 };
 
-/**
- * DELETE /rooms/:id
- * Params: { id }
- */
 const validateDeleteRoom = (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 'ID phòng phải là số nguyên dương');

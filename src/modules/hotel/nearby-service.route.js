@@ -6,7 +6,6 @@ const { validateAdminGetAll, validateAdminCreate, validateAdminUpdate, validateA
 
 const router = Router();
 
-// Admin CRUD — protected by auth + admin
 router.get('/', authMiddleware, requireAdmin, validateAdminGetAll, nearbyServiceController.adminGetAll);
 router.post('/', authMiddleware, requireAdmin, validateAdminCreate, nearbyServiceController.adminCreate);
 router.put('/:id', authMiddleware, requireAdmin, validateAdminUpdate, nearbyServiceController.adminUpdate);
